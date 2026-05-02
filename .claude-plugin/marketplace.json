@@ -1,0 +1,19 @@
+{
+  "name": "dora",
+  "owner": { "name": "dfbb" },
+  "metadata": {
+    "description": "Dora — dynamically query and load community skills.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "dora",
+      "source": "./",
+      "description": "Query a public skill engine, load matching SKILL.md from GitHub, run it.",
+      "version": "0.1.0",
+      "author": { "name": "dfbb" },
+      "category": "development",
+      "keywords": ["skills", "marketplace", "skill-discovery", "mcp"]
+    }
+  ]
+}

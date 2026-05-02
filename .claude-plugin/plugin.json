@@ -1,0 +1,14 @@
+{
+  "name": "dora",
+  "version": "0.1.0",
+  "description": "Dynamically query and load community skills for AI coding agents.",
+  "author": { "name": "dfbb" },
+  "license": "MIT",
+  "mcpServers": {
+    "dora": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/start.bundle.mjs"]
+    }
+  },
+  "skills": "./skills/"
+}

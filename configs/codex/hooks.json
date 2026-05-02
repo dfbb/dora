@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "dora hook codex sessionstart" }] }
+    ]
+  }
+}

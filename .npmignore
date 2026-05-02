@@ -1,0 +1,11 @@
+src/
+tests/
+docs/
+node_modules/
+.git/
+.github/
+*.tsbuildinfo
+coverage/
+esbuild.config.mjs
+tsconfig.json
+vitest.config.ts
