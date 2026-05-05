@@ -69,8 +69,8 @@ Writes `opencode.json` (merged) and `AGENTS.md`.
 `~/.dora/config.yaml` (or `./.dora/config.yaml` for project-local):
 
 ```yaml
-skill_query_url: http://127.0.0.1:8080   # query engine URL
-min_security_level: safe                  # safe | warn | danger
+skill_query_url: http://api.doraskill.org  # query engine URL
+min_security_level: warn                  # safe | warn | danger
 top_k: 5
 cache_ttl_days: 7
 query_timeout_seconds: 30
