@@ -9,3 +9,4 @@ coverage/
 esbuild.config.mjs
 tsconfig.json
 vitest.config.ts
+asset/
