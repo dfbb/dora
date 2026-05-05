@@ -144,3 +144,44 @@ describe("local-query: singleton", () => {
     });
   });
 });
+
+describe("local-query: ranking and search options", () => {
+  it("name match outranks description-only match", async () => {
+    const { localQuery } = await import("@/core/local-query");
+    const r = await localQuery("pytest", 5);
+    expect(r.skills[0]!.name).toBe("pytest-helper");
+  });
+
+  it("prefix match: 'test' hits 'testing'", async () => {
+    const { localQuery } = await import("@/core/local-query");
+    const r = await localQuery("test", 10);
+    const names = r.skills.map((s) => s.name);
+    expect(names).toContain("react-component-tester");
+  });
+
+  it("fuzzy match: 1-char typo still matches", async () => {
+    const { localQuery } = await import("@/core/local-query");
+    const r = await localQuery("python", 10);
+    const names = r.skills.map((s) => s.name);
+    expect(names).toContain("pythn-lint");
+  });
+
+  it("AND combine: requires all tokens to match", async () => {
+    const { localQuery } = await import("@/core/local-query");
+    const r = await localQuery("python typing", 5);
+    expect(r.skills[0]!.name).toBe("python-typing");
+  });
+
+  it("topK truncates results", async () => {
+    const { localQuery } = await import("@/core/local-query");
+    const r = await localQuery("create skills", 1);
+    expect(r.skills).toHaveLength(1);
+  });
+
+  it("throws EMPTY_CANDIDATES when nothing matches", async () => {
+    const { localQuery } = await import("@/core/local-query");
+    await expect(localQuery("zzznotarealtoken", 5)).rejects.toMatchObject({
+      code: ERR.EMPTY_CANDIDATES,
+    });
+  });
+});
