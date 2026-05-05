@@ -15,9 +15,13 @@ user-invocable: true
 
 If `$ARGUMENTS` is empty: call MCP tool `dora_list` with `{}`, display the returned table verbatim, then stop.
 
+## Step 1.5 — Translate to English
+
+If `$ARGUMENTS` contains any non-ASCII characters, translate it to English yourself (do not call any API or tool — just translate inline as part of your reasoning). Use the translated English text as `QUERY` for all subsequent steps. Otherwise set `QUERY` = `$ARGUMENTS`.
+
 ## Step 2 — Query
 
-Call MCP tool `dora_query` with `{query: "$ARGUMENTS"}`.
+Call MCP tool `dora_query` with `{query: "QUERY"}`.
 
 - Response has `{error, message}` → relay message to user, then suggest `/dora:dora-doctor`. Stop.
 - Response has `{skills: [...]}` → continue.
