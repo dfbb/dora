@@ -5,7 +5,7 @@ import { configPath } from "./paths";
 
 export const DEFAULTS = {
   skill_query_url: "http://api.doraskill.org",
-  skill_query_mode: "graph",
+  skill_query_mode: "router",
   top_k: 5,
   cache_ttl_days: 7,
   min_security_level: "safe" as const,
