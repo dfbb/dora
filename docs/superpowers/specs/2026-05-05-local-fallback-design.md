@@ -35,19 +35,21 @@ src/
 │   └── local-query.ts    [新增]   本地 BM25 + 数据加载 + 字段映射
 ├── mcp/
 │   └── tools.ts          [改动]   dora_query 编排降级,注入 source 字段
-├── diagnostics/checks/
-│   └── local-index.ts    [新增]   doctor 检查嵌入资产可用
+├── diagnostics/
+│   ├── run.ts            [改动]   import + push checkLocalIndex 到 runChecks()
+│   └── checks/
+│       └── local-index.ts    [新增]   doctor 检查嵌入资产可用
 ├── core/errors.ts        [改动]   +LOCAL_INDEX_BROKEN
 └── types/assets.d.ts     [新增]   declare module "*.gz" { const x: Uint8Array; export default x; }
 
 esbuild.config.mjs         [改动]   +.gz binary loader
 package.json               [改动]   +minisearch
-.npmignore                 [改动]   +asset/
+.npmignore                 [改动]   +asset/(防御性,见下;files 白名单已实际控制发布)
 
 tests/core/local-query.test.ts       [新增]
 tests/mcp/tools-fallback.test.ts     [新增]   隔离的降级集成测试(顶层 vi.mock)
 tests/mcp/tools.test.ts              [不变]   现有用例不动
-tests/fixtures/skillsh-mini.json.gz  [新增]   ~6 条精选 fixture
+tests/fixtures/skillsh-mini.json.gz  [新增]   10 条精选 fixture(明细见 Fixture 节)
 ```
 
 ### 职责分离
@@ -89,7 +91,7 @@ localQuery(query, topK)
    │     ├─ loadEmbeddedAsset()  ← 默认嵌入,DORA_ASSET_DIR 可覆盖(测试用)
    │     ├─ gunzipSync → JSON.parse
    │     ├─ 校验 schema_version === 1
-   │     └─ map skills → SkillCandidate[](含 security_level 推导,组合 _local_id)
+   │     └─ map skills → LocalSkillCandidate[](含 security_level 推导,组合 _local_id)
    ├─ 首次:buildIndex(corpus)  ~150ms
    └─ 后续:复用闭包中的 index 单例
         ↓
@@ -214,7 +216,23 @@ function stripLocalId(s: LocalSkillCandidate): SkillCandidate {
 export function __resetLocalIndexForTest(): void { _idx = null; }
 ```
 
-`localQuery` 调用 `mini.search` 拿到 `LocalSkillCandidate`,join corpus 后 `stripLocalId` 投影回 `SkillCandidate` 返回。`__resetLocalIndexForTest` 仅供 vitest 直接 import 调用(用 `__` 前缀作为约定的"内部"标识)。
+`localQuery` 用 `mini.search` 拿到 `SearchResult[]`(含 `id/score/terms/match` 等元信息,**不是**原始文档),用 `id` 回查 `corpus` Map 拿到完整 `LocalSkillCandidate`,再 `stripLocalId` 投影回 `SkillCandidate` 返回:
+
+```ts
+async function localQuery(query: string, topK: number): Promise<QueryResult & { source: "local" }> {
+  const idx = await getIndex();
+  const rows = idx.mini.search(query, { /* searchOptions */ });   // SearchResult[]
+  if (rows.length === 0) throw new DoraError(ERR.EMPTY_CANDIDATES, "...");
+  const skills: SkillCandidate[] = [];
+  for (const row of rows.slice(0, topK)) {
+    const cand = idx.corpus.get(String(row.id));
+    if (cand) skills.push(stripLocalId(cand));
+  }
+  return { skills, source: "local" };
+}
+```
+
+`__resetLocalIndexForTest` 仅供 vitest 直接 import 调用(用 `__` 前缀作为约定的"内部"标识)。
 
 - MCP server 长驻进程:首查 ~150ms,后续 ~10ms(基于 9.5k 条规模)
 - CLI 一次性命令:目前无路径触发本地降级,懒加载策略对未来扩展友好
@@ -251,17 +269,19 @@ async function loadEmbeddedAsset(): Promise<Uint8Array> {
   return embeddedSkillshGz;
 }
 
-async function loadSkillsCorpus(): Promise<SkillCandidate[]> {
+async function loadSkillsCorpus(): Promise<LocalSkillCandidate[]> {
   const raw = await loadEmbeddedAsset();
   const json = JSON.parse(gunzipSync(Buffer.from(raw)).toString("utf8"));
   if (json.schema_version !== 1) throw new DoraError(ERR.LOCAL_INDEX_BROKEN, ...);
-  return json.skills.map(mapToCandidate);
+  return json.skills.map(mapToCandidate);   // 含 _local_id
 }
 ```
 
+对外只让 `localQuery()` 返回 strip 后的 `SkillCandidate[]`,`loadSkillsCorpus` / `getIndex` / `LocalSkillCandidate` 都不导出。
+
 测试用 `DORA_ASSET_DIR` 指向 fixture 目录;同时通过 `__resetLocalIndexForTest()` 在 `afterEach` 清单例,避免用例间污染(损坏 gzip / 文件不存在 / 单例复用 三类用例尤需)。
 
-bundle 体积:`cli.bundle.mjs` 与 `start.bundle.mjs` 各 +~1.8MB(总安装占用 ~3-4MB)。`asset/` 通过 `.npmignore` 排除,不再以外部文件发布。
+bundle 体积:`cli.bundle.mjs` 与 `start.bundle.mjs` 各 +~1.8MB(总安装占用 ~3-4MB)。`package.json#files` 已是白名单(`cli.bundle.mjs`/`start.bundle.mjs`/`hooks/`/`skills/`/`configs/`/`.claude-plugin/`/`README.md`/`LICENSE`),`asset/` **本来就不会被 npm 包含**——`.npmignore` 仅作防御性补充,不依赖它来阻止发布。
 
 ## 错误处理
 
@@ -308,7 +328,7 @@ ERR.LOCAL_INDEX_BROKEN = "local_index_broken"
 
 ### `tests/core/local-query.test.ts`(新增)
 
-用一个 ~6 条的 fixture(`tests/fixtures/skillsh-mini.json.gz`)替代真 1.8MB asset,通过 `DORA_ASSET_DIR` 环境变量切换。每个用例 `beforeEach` 调用 `__resetLocalIndexForTest()` 清单例,避免污染。
+用一个 **10 条**的 fixture(`tests/fixtures/skillsh-mini.json.gz`,见下表)替代真 1.8MB asset,通过 `DORA_ASSET_DIR` 环境变量切换。每个用例 `beforeEach` 调用 `__resetLocalIndexForTest()` 清单例,避免污染。
 
 | # | 用例 | 验证点 |
 |---|---|---|
@@ -350,7 +370,22 @@ ERR.LOCAL_INDEX_BROKEN = "local_index_broken"
 
 ### Fixture
 
-`tests/fixtures/skillsh-mini.json` → 手写 ~6 条覆盖三档 security、prefix/fuzzy/AND 用例、**至少一对重复 `skill_id` + 不同 `source_slug`** 验证组合 ID → gzip 提交。
+`tests/fixtures/skillsh-mini.json` → 手写 **10 条** → gzip 提交。10 条比 6 条多余,但 BM25 排序对 token 分布敏感,fixture 太小排序断言会脆;10 条给排序用例(name boost vs description、AND、prefix、fuzzy)留足"噪声"。
+
+| # | name | summary 关键词 | snyk/socket/trusthub | 用途 |
+|---|---|---|---|---|
+| 1 | `pytest-helper` | "Helps write pytest tests with fixtures" | Pass/Pass/Pass | 全 Pass=safe;name=pytest 命中 |
+| 2 | `python-typing` | "Type checking for Python projects" | Pass/Pass/Pass | safe;multi-token AND |
+| 3 | `docker-compose-skill` | "Manage Docker compose stacks" | Fail/Pass/Pass | 任一 Fail=danger |
+| 4 | `wechat-publisher` | "Converts Markdown for WeChat" | Warn/Pass/Fail | 任一 Fail=danger |
+| 5 | `nix-best-practices` | "Standardize flake structure" | Warn/Pass/Pass | 含 Warn,无 Fail=warn |
+| 6 | `unrelated-foo` | "Random unrelated content lorem ipsum" | (缺字段) | 缺字段→warn;completely-no-match 用例的"对照组" |
+| 7 | `react-component-tester` | "testing components in React" | Pass/Pass/Pass | prefix:"test"→"testing";name 含 tester |
+| 8 | `pythn-lint` | "Linter for Pythn(故意 typo)" | Pass/Pass/Pass | fuzzy 测试: query "python" 容错命中 |
+| 9 | `skill-creator` (source_slug=`alice/repo-a`) | "create skills" | Pass/Pass/Pass | 重复 skill_id 第 1 条 |
+| 10 | `skill-creator` (source_slug=`bob/repo-b`) | "create skills different" | Pass/Pass/Pass | 重复 skill_id 第 2 条:验证组合 ID 不冲掉 |
+
+`url`(github_url)与 `skill_path_url`(skill_url)字段每条都填。`skill_id` 字段第 9/10 条故意相同(`skill-creator`),第 7 条 description 故意只含 "testing",第 1 条 name 显著含 "pytest",这样用例 8(name boost > description)有清晰的预期排序。
 
 ### 不测的
 
@@ -373,11 +408,13 @@ ERR.LOCAL_INDEX_BROKEN = "local_index_broken"
 
 minisearch 7.x:零子依赖,~6KB gz,纯 ESM。
 
-### `.npmignore`
+### `.npmignore`(防御性)
 
 ```diff
 +asset/
 ```
+
+`package.json#files` 是白名单,`asset/` 本来就不会进 npm 包;此条仅防御未来误把 `files` 改成黑名单时把 1.8MB 资产推进包。
 
 ### 用户 `config.yaml`
 
@@ -385,7 +422,9 @@ minisearch 7.x:零子依赖,~6KB gz,纯 ESM。
 
 ## 诊断
 
-`src/diagnostics/checks/local-index.ts` 新增一项:启动一次 `loadSkillsCorpus()` + `buildIndex()`,失败时报 `LOCAL_INDEX_BROKEN`。`dora_doctor` 自动包含。
+`src/diagnostics/checks/local-index.ts` 新增一项:启动一次 `loadSkillsCorpus()` + `buildIndex()`(用 `__resetLocalIndexForTest` 配套思路,但 doctor 这里直接调 `getIndex` 即可——首次调用就走完整路径),失败时返回 `{ status: "fail", detail: "<reason>" }`,catch `LOCAL_INDEX_BROKEN` 的 `detail.reason`。
+
+`src/diagnostics/run.ts` 也要改:顶部 `import { checkLocalIndex } from "./checks/local-index"`,在 `runChecks()` 里 `results.push(await checkLocalIndex())`(放在 `checkEngine` 之后是合适的顺序——引擎不通时,本地索引就是兜底,doctor 应紧接着报告它的状态)。
 
 ## 向后兼容
 
