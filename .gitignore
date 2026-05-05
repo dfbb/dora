@@ -28,7 +28,6 @@ data/*
 
 # Node.js
 node_modules/
-*.bundle.mjs
 *.tsbuildinfo
 .dora/
 coverage/
