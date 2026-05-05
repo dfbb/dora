@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { loadConfig } from "@/core/config";
 import { queryEngine } from "@/core/query";
+import { localQuery } from "@/core/local-query";
 import { loadSkill } from "@/core/loader";
 import { listSkills, purgeAll, touch } from "@/core/cache";
-import { isDoraError, ERR } from "@/core/errors";
+import { isDoraError, ERR, DoraError } from "@/core/errors";
 import { buildStats } from "@/stats";
 import { buildUpgradeCommand } from "@/upgrade";
 import { runDoctor } from "@/diagnostics/run";
@@ -23,16 +24,47 @@ function err(e: unknown): string {
   return JSON.stringify({ error: "internal", message: (e as Error).message });
 }
 
+function shouldFallback(e: unknown): boolean {
+  if (!isDoraError(e)) return false;
+  if (e.code === ERR.ENGINE_UNREACHABLE) return true;
+  if (e.code === ERR.HTTP_ERROR) {
+    const status = (e.detail as { status?: number } | undefined)?.status;
+    return typeof status === "number" && (status >= 500 || status === 429);
+  }
+  return false;
+}
+
 export const handlers = {
   async dora_query(args: unknown): Promise<string> {
     try {
       const a = QuerySchema.parse(args);
       const cfg = loadConfig();
-      const r = await queryEngine(a.query, {
-        url: cfg.skill_query_url, mode: cfg.skill_query_mode,
-        topK: cfg.top_k, timeoutMs: cfg.query_timeout_seconds * 1000,
-      });
-      return JSON.stringify(r);
+      try {
+        const r = await queryEngine(a.query, {
+          url: cfg.skill_query_url, mode: cfg.skill_query_mode,
+          topK: cfg.top_k, timeoutMs: cfg.query_timeout_seconds * 1000,
+        });
+        return JSON.stringify({ ...r, source: "remote" });
+      } catch (e) {
+        if (shouldFallback(e)) {
+          const remote = e as DoraError;
+          console.error(`[dora] remote engine ${remote.code}, falling back to local`);
+          try {
+            const r = await localQuery(a.query, cfg.top_k);
+            return JSON.stringify(r);
+          } catch (fe) {
+            if (isDoraError(fe)) {
+              return JSON.stringify({
+                error: remote.code,
+                message: `${remote.message}; local fallback also failed: ${fe.message}`,
+                detail: { remote_code: remote.code, local_code: fe.code },
+              });
+            }
+            return err(fe);
+          }
+        }
+        return err(e);
+      }
     } catch (e) { return err(e); }
   },
 
