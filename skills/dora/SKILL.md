@@ -28,7 +28,7 @@ Call MCP tool `dora_query` with `{query: "QUERY"}`.
 
 ## Step 3 — Pick candidate
 
-Read `min_security_level` from `~/.dora/config.yaml` (or `./.dora/config.yaml`), default `safe`. Ordering: `safe < warn < danger`. Take the first skill whose `security_level` is **no more dangerous than** the threshold.
+Read `min_security_level` from `~/.dora/config.yaml` (or `./.dora/config.yaml`), default `warn`. Ordering: `safe < warn < danger`. Take the first skill whose `security_level` is **no more dangerous than** the threshold (i.e. skip only `danger` skills unless threshold is `danger`).
 
 If none qualify, render this markdown table and ask the user to pick by name (or abort). **Do not auto-select below threshold.**
 
