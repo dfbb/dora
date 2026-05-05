@@ -158,7 +158,8 @@ export async function localQuery(query: string, topK: number): Promise<LocalQuer
   const skills: SkillCandidate[] = [];
   for (const row of rows.slice(0, topK)) {
     const cand = idx.corpus.get(String(row.id));
-    if (cand) skills.push(stripLocalId(cand));
+    if (!cand) throw new DoraError(ERR.LOCAL_INDEX_BROKEN, "corpus/index mismatch", { id: String(row.id) });
+    skills.push(stripLocalId(cand));
   }
   return { skills, source: "local" };
 }

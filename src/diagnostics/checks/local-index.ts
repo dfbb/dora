@@ -1,9 +1,8 @@
 import type { CheckResult } from "../run";
 import { isDoraError } from "@/core/errors";
-import { localQuery, __resetLocalIndexForTest } from "@/core/local-query";
+import { localQuery } from "@/core/local-query";
 
 export async function checkLocalIndex(): Promise<CheckResult> {
-  __resetLocalIndexForTest();
   try {
     await localQuery("smoke", 1);
     return { name: "local index", status: "pass" };
