@@ -4,7 +4,7 @@
 
 ## What it does
 
-When the user gives you a task you don't already know how to do, dora queries a public skill engine, picks a matching skill, clones it from GitHub, and loads its `SKILL.md` into your context. Cache is on disk; lookups are TTL'd; the agent never holds the full skill catalog in context.
+When the user gives you a task you don't already know how to do, dora queries a public skill engine, picks a matching skill, clones it from GitHub, and loads its `SKILL.md` into your context. Cache is on disk; lookups are TTL'd; the agent never holds the full skill catalog in context. When the remote skill engine is unreachable or returns 5xx/429, dora automatically falls back to an in-memory BM25 search over a bundled snapshot of ~9.5k community skills.
 
 ## Install
 
@@ -97,6 +97,17 @@ dora install:<platform>        Write platform config
 - Status: `~/.dora/skills/status.yaml`
 - Query log: `~/.dora/query-log.jsonl`
 - Config: `~/.dora/config.yaml` (not deleted by purge)
+
+## Offline Fallback
+
+`dora_query` automatically falls back to a local catalog when the remote engine is unreachable.
+
+- **Triggers:** `engine_unreachable` (network/timeout) or `http_error` with status ≥ 500 or status === 429. Other 4xx errors are returned to the caller as-is so configuration/auth issues are not hidden.
+- **Catalog:** ~9,465 skills, bundled into the npm package (no extra download).
+- **Result shape:** identical to remote (`{skills: [...]}`) plus a `source: "remote" | "local"` field on the returned JSON.
+- **Diagnostics:** `dora_doctor` includes a `local index` check.
+
+Empty results from the remote engine (`empty_candidates`) are NOT a fallback trigger — if the remote service explicitly says no match, dora trusts that answer.
 
 ## License
 
