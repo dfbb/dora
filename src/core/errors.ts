@@ -7,6 +7,7 @@ export const ERR = {
   NO_SKILL_MD: "no_skill_md",
   STATUS_CORRUPT: "status_corrupt",
   CONFIRMATION_REQUIRED: "confirmation_required",
+  LOCAL_INDEX_BROKEN: "local_index_broken",
 } as const;
 
 export type DoraErrorCode = (typeof ERR)[keyof typeof ERR];
