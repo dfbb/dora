@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  assetsInclude: ["**/*.gz"],
   test: {
     include: ["tests/**/*.test.ts"],
     passWithNoTests: true,
