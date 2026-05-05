@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "exported_at": 1777914524,
+  "skills": [
+    {
+      "name": "pytest-helper",
+      "skill_id": "pytest-helper",
+      "source_slug": "py/pytest-helper",
+      "author": "py",
+      "github_url": "https://github.com/py/pytest-helper",
+      "skill_url": "https://github.com/py/pytest-helper/tree/main/pytest-helper",
+      "summary": "Helps write pytest tests with fixtures",
+      "github_star": 100,
+      "security_snyk": "Pass",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    },
+    {
+      "name": "python-typing",
+      "skill_id": "python-typing",
+      "source_slug": "py/python-typing",
+      "author": "py",
+      "github_url": "https://github.com/py/python-typing",
+      "skill_url": "https://github.com/py/python-typing/tree/main/python-typing",
+      "summary": "Type checking for Python projects",
+      "github_star": 80,
+      "security_snyk": "Pass",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    },
+    {
+      "name": "docker-compose-skill",
+      "skill_id": "docker-compose-skill",
+      "source_slug": "ops/docker-compose-skill",
+      "author": "ops",
+      "github_url": "https://github.com/ops/docker-compose-skill",
+      "skill_url": "https://github.com/ops/docker-compose-skill/tree/main/docker-compose-skill",
+      "summary": "Manage Docker compose stacks",
+      "github_star": 50,
+      "security_snyk": "Fail",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    },
+    {
+      "name": "wechat-publisher",
+      "skill_id": "wechat-publisher",
+      "source_slug": "media/wechat-publisher",
+      "author": "media",
+      "github_url": "https://github.com/media/wechat-publisher",
+      "skill_url": "https://github.com/media/wechat-publisher/tree/main/wechat-publisher",
+      "summary": "Converts Markdown for WeChat",
+      "github_star": 30,
+      "security_snyk": "Warn",
+      "security_socket": "Pass",
+      "security_trusthub": "Fail"
+    },
+    {
+      "name": "nix-best-practices",
+      "skill_id": "nix-best-practices",
+      "source_slug": "nix/nix-best-practices",
+      "author": "nix",
+      "github_url": "https://github.com/nix/nix-best-practices",
+      "skill_url": "https://github.com/nix/nix-best-practices/tree/main/nix-best-practices",
+      "summary": "Standardize flake structure",
+      "github_star": 60,
+      "security_snyk": "Warn",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    },
+    {
+      "name": "unrelated-foo",
+      "skill_id": "unrelated-foo",
+      "source_slug": "x/unrelated-foo",
+      "author": "x",
+      "github_url": "https://github.com/x/unrelated-foo",
+      "skill_url": "https://github.com/x/unrelated-foo/tree/main/unrelated-foo",
+      "summary": "Random unrelated content lorem ipsum",
+      "github_star": 0
+    },
+    {
+      "name": "react-component-tester",
+      "skill_id": "react-component-tester",
+      "source_slug": "react/react-component-tester",
+      "author": "react",
+      "github_url": "https://github.com/react/react-component-tester",
+      "skill_url": "https://github.com/react/react-component-tester/tree/main/react-component-tester",
+      "summary": "testing components in React",
+      "github_star": 40,
+      "security_snyk": "Pass",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    },
+    {
+      "name": "pythn-lint",
+      "skill_id": "pythn-lint",
+      "source_slug": "py/pythn-lint",
+      "author": "py",
+      "github_url": "https://github.com/py/pythn-lint",
+      "skill_url": "https://github.com/py/pythn-lint/tree/main/pythn-lint",
+      "summary": "Linter for Pythn projects",
+      "github_star": 20,
+      "security_snyk": "Pass",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    },
+    {
+      "name": "skill-creator",
+      "skill_id": "skill-creator",
+      "source_slug": "alice/repo-a",
+      "author": "alice",
+      "github_url": "https://github.com/alice/repo-a",
+      "skill_url": "https://github.com/alice/repo-a/tree/main/skill-creator",
+      "summary": "create skills",
+      "github_star": 15,
+      "security_snyk": "Pass",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    },
+    {
+      "name": "skill-creator",
+      "skill_id": "skill-creator",
+      "source_slug": "bob/repo-b",
+      "author": "bob",
+      "github_url": "https://github.com/bob/repo-b",
+      "skill_url": "https://github.com/bob/repo-b/tree/main/skill-creator",
+      "summary": "create skills different",
+      "github_star": 10,
+      "security_snyk": "Pass",
+      "security_socket": "Pass",
+      "security_trusthub": "Pass"
+    }
+  ]
+}
