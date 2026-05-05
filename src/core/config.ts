@@ -4,8 +4,8 @@ import { z } from "zod";
 import { configPath } from "./paths";
 
 export const DEFAULTS = {
-  skill_query_url: "http://127.0.0.1:8080",
-  skill_query_mode: "router",
+  skill_query_url: "http://api.doraskill.org",
+  skill_query_mode: "graph",
   top_k: 5,
   cache_ttl_days: 7,
   min_security_level: "safe" as const,

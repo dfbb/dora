@@ -26,7 +26,7 @@ afterEach(() => {
 
 describe("MCP tool handlers", () => {
   it("dora_query returns skills", async () => {
-    server.use(http.post("http://127.0.0.1:8080/retrieve", () =>
+    server.use(http.post("http://api.doraskill.org/retrieve", () =>
       HttpResponse.json({ skills: [{ name: "x", url: "https://github.com/a/x", security_level: "safe" }] })));
     const r = await handlers.dora_query({ query: "hello" });
     expect(JSON.parse(r).skills).toHaveLength(1);

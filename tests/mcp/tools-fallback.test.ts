@@ -12,7 +12,7 @@ vi.mock("@/core/local-query", () => ({
   __resetLocalIndexForTest: () => {},
 }));
 
-const ENGINE = "http://127.0.0.1:8080";
+const ENGINE = "http://api.doraskill.org";
 const server = setupServer();
 let work: string;
 const orig = { ...process.env };

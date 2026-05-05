@@ -28,7 +28,7 @@ beforeEach(() => {
   process.env.DORA_HOME = work;
   process.env.DORA_TEST = "1";
   fixtureUrl = makeRepo(work);
-  server.use(http.post("http://127.0.0.1:8080/retrieve", () => HttpResponse.json({
+  server.use(http.post("http://api.doraskill.org/retrieve", () => HttpResponse.json({
     skills: [{ name: "e2e", url: fixtureUrl, security_level: "safe", description_en: "e2e", github_stars: 0 }],
   })));
 });
