@@ -34,16 +34,19 @@ src/
 │   ├── query.ts          [不变]   远程 HTTP 客户端
 │   └── local-query.ts    [新增]   本地 BM25 + 数据加载 + 字段映射
 ├── mcp/
-│   └── tools.ts          [改动]   dora_query 编排降级
+│   └── tools.ts          [改动]   dora_query 编排降级,注入 source 字段
 ├── diagnostics/checks/
 │   └── local-index.ts    [新增]   doctor 检查嵌入资产可用
-└── core/errors.ts        [改动]   +LOCAL_INDEX_BROKEN
+├── core/errors.ts        [改动]   +LOCAL_INDEX_BROKEN
+└── types/assets.d.ts     [新增]   declare module "*.gz" { const x: Uint8Array; export default x; }
 
 esbuild.config.mjs         [改动]   +.gz binary loader
-package.json               [改动]   +minisearch, +.npmignore asset/
+package.json               [改动]   +minisearch
+.npmignore                 [改动]   +asset/
 
-tests/core/local-query.test.ts  [新增]
-tests/mcp/tools.test.ts         [改动]   +降级集成用例
+tests/core/local-query.test.ts       [新增]
+tests/mcp/tools-fallback.test.ts     [新增]   隔离的降级集成测试(顶层 vi.mock)
+tests/mcp/tools.test.ts              [不变]   现有用例不动
 tests/fixtures/skillsh-mini.json.gz  [新增]   ~6 条精选 fixture
 ```
 
@@ -95,6 +98,31 @@ localQuery(query, topK)
 appendQueryLog
         ↓
    { skills: [...], source: "local" }
+```
+
+### 编排不变量(关键)
+
+`source` 字段**完全由 `mcp/tools.ts` 编排层注入**,`core/query.ts` 与 `core/local-query.ts` 都不应改动现有签名/返回:
+
+- `queryEngine` 仍然返回 `{ skills }`(不带 `source`),`tools.ts#dora_query` 在序列化前 `{ ...r, source: "remote" }`
+- `localQuery` 内部已带 `source: "local"`(因为它是新代码,从一开始就这么设计),`tools.ts` 不重复包装
+
+实现 `tools.ts#dora_query` 时**必须显式注入 remote 的 source**——直接返回 `JSON.stringify(r)` 会丢字段,集成测试 A 会失败。
+
+```ts
+// tools.ts#dora_query 关键片段(实现期参考)
+const r = await queryEngine(a.query, {/*...*/});
+return JSON.stringify({ ...r, source: "remote" });
+
+function shouldFallback(e: unknown): boolean {
+  if (!isDoraError(e)) return false;
+  if (e.code === ERR.ENGINE_UNREACHABLE) return true;
+  if (e.code === ERR.HTTP_ERROR) {
+    const status = (e.detail as { status?: number } | undefined)?.status;
+    return typeof status === "number" && (status >= 500 || status === 429);
+  }
+  return false;
+}
 ```
 
 ## 字段映射
@@ -160,20 +188,33 @@ BM25 参数 k1/b 用 minisearch 默认值。返回 SkillCandidate 时 strip 掉 
 
 ## 索引单例
 
+`SkillCandidate` 的 `[k: string]: unknown` 兜底意味着 `s._local_id` 类型是 `unknown`,不能直接当 Map key 也无法 `idField` 推断。实现层引入**内部加宽类型**,只在模块内可见,strip 后再返回:
+
 ```ts
-let _idx: { mini: MiniSearch; corpus: Map<string, SkillCandidate> } | null = null;
+// 仅在 local-query.ts 内部使用,不导出
+interface LocalSkillCandidate extends SkillCandidate {
+  _local_id: string;
+}
+
+let _idx: { mini: MiniSearch<LocalSkillCandidate>; corpus: Map<string, LocalSkillCandidate> } | null = null;
 
 async function getIndex() {
   if (_idx) return _idx;
-  const corpus = await loadSkillsCorpus();
+  const corpus = await loadSkillsCorpus();   // 返回 LocalSkillCandidate[]
   const mini = buildMiniSearch(corpus);
   _idx = { mini, corpus: new Map(corpus.map(s => [s._local_id, s])) };
   return _idx;
 }
 
-// 测试边界——只在 NODE_ENV === "test" 或始终导出但用 __ 前缀,以 vitest 通过 import 直接调
+function stripLocalId(s: LocalSkillCandidate): SkillCandidate {
+  const { _local_id, ...rest } = s;
+  return rest;
+}
+
 export function __resetLocalIndexForTest(): void { _idx = null; }
 ```
+
+`localQuery` 调用 `mini.search` 拿到 `LocalSkillCandidate`,join corpus 后 `stripLocalId` 投影回 `SkillCandidate` 返回。`__resetLocalIndexForTest` 仅供 vitest 直接 import 调用(用 `__` 前缀作为约定的"内部"标识)。
 
 - MCP server 长驻进程:首查 ~150ms,后续 ~10ms(基于 9.5k 条规模)
 - CLI 一次性命令:目前无路径触发本地降级,懒加载策略对未来扩展友好
@@ -194,7 +235,9 @@ export function __resetLocalIndexForTest(): void { _idx = null; }
 
 ```ts
 import embeddedSkillshGz from "../../asset/skillsh.json.gz";
-// 类型: declare module "*.gz" { const x: Uint8Array; export default x; }
+// 类型声明放 src/types/assets.d.ts(必须在 tsconfig.include 的 src/**/* 之内,
+// 否则 tsc --noEmit 会报找不到模块):
+//   declare module "*.gz" { const x: Uint8Array; export default x; }
 
 // 默认走嵌入资产
 async function loadEmbeddedAsset(): Promise<Uint8Array> {
@@ -232,11 +275,17 @@ ERR.LOCAL_INDEX_BROKEN = "local_index_broken"
 
 | 阶段 | 失败模式 | 处理 |
 |---|---|---|
-| loadSkillsCorpus | gunzip 失败 / JSON 损坏 / schema_version ≠ 1 | 抛 `LOCAL_INDEX_BROKEN` |
-| buildIndex | minisearch 抛 | 抛 `LOCAL_INDEX_BROKEN` |
-| localQuery | search 返回空 | 抛 `EMPTY_CANDIDATES`(与远程空结果共用 code) |
+| `loadEmbeddedAsset` (DORA_ASSET_DIR 路径) | `readFileSync` ENOENT / 权限 | catch → 抛 `LOCAL_INDEX_BROKEN(reason: "asset_read_failed")` |
+| `loadSkillsCorpus` | `gunzipSync` 抛 | catch → 抛 `LOCAL_INDEX_BROKEN(reason: "gunzip_failed")` |
+| `loadSkillsCorpus` | `JSON.parse` 抛 | catch → 抛 `LOCAL_INDEX_BROKEN(reason: "json_parse_failed")` |
+| `loadSkillsCorpus` | `schema_version !== 1` 或 `skills` 不是数组 | 抛 `LOCAL_INDEX_BROKEN(reason: "schema_mismatch")` |
+| `buildIndex` | `mini.addAll` 抛 | catch → 抛 `LOCAL_INDEX_BROKEN(reason: "index_build_failed")` |
+| `localQuery` | `mini.search` 抛(理论不会) | catch → 抛 `LOCAL_INDEX_BROKEN(reason: "search_failed")` |
+| `localQuery` | search 返回空 | 抛 `EMPTY_CANDIDATES`(与远程空结果共用 code) |
 | 远程 `HTTP_ERROR` 4xx(非 429) | 配置/鉴权/无效请求 | 不降级,直接返回原错 |
 | 远程 code 不在白名单 | `EMPTY_CANDIDATES` / `VALIDATION` 等 | 不降级,直接返回原错 |
+
+**实现要求:** `local-query.ts` 内部对 `readFileSync` / `gunzipSync` / `JSON.parse` / `mini.addAll` / `mini.search` 这 5 个外部调用必须各自 try/catch,把任何非 `DoraError` 的异常 wrap 成 `DoraError(ERR.LOCAL_INDEX_BROKEN, message, { reason, cause: (e as Error).message })`。否则 `tools.ts` 里的 `err()` 会把它当 `internal` 错误吐出,合成错误测试(用例 E)无法断言 `detail.local_code === "local_index_broken"`。
 
 ### 降级失败时的合成错误
 
@@ -280,17 +329,24 @@ ERR.LOCAL_INDEX_BROKEN = "local_index_broken"
 | 15 | 重复 `skill_id` 不冲掉 | fixture 含两条同 `skill_id` 不同 `source_slug`,corpus 长度 = 2 |
 | 16 | 返回 source 字段 | `source: "local"`,且不暴露 `_local_id` |
 
-### `tests/mcp/tools.test.ts`(改动)
+### `tests/mcp/tools-fallback.test.ts`(新增,与现有 tools.test.ts 隔离)
+
+**关键:测试隔离方式**——`tools.ts` 静态 import `localQuery`,vitest 后置 `vi.spyOn` 拦不住模块顶层引用。两条可选路:
+
+- **A) 在 import `@/mcp/tools` 之前** `vi.mock("@/core/local-query", ...)`,用 `vi.hoisted` 提升 mock 工厂——但 `tools.test.ts` 现有顶层 `import { handlers } from "@/mcp/tools"` 已经把 tools.ts evaluate 了,改动量大且和现有用例混
+- **B)(推荐)新建独立测试文件** `tests/mcp/tools-fallback.test.ts`,顶层 `vi.mock("@/core/local-query", ...)`,**隔离**降级用例;现有 `tools.test.ts` 不动。`vi.mock` 必须放在 import `@/mcp/tools` 之前,vitest 会自动提升
+
+走 B。新文件用例:
 
 | # | 用例 | 验证 |
 |---|---|---|
-| A | remote 200 | `source: "remote"`,本地 spy 未调 |
-| B | remote 网络错误 | `source: "local"`,stderr 有 warn |
+| A | remote 200 | `source: "remote"`,`localQuery` mock 未被调 |
+| B | remote 网络错误 | `source: "local"`,stderr 有 warn,`localQuery` mock 被调 1 次 |
 | C | remote 502 | 降级,`source: "local"`,code 路径 = `http_error` |
 | C2 | remote 429 | 降级,`source: "local"` |
-| D | remote `EMPTY_CANDIDATES` | 返回原 `empty_candidates`,本地 spy 未调 |
-| D2 | remote 401 / 403 / 404 | **不降级**,返回原 `http_error`,本地 spy 未调 |
-| E | remote 失败 + 本地损坏 | 合成错误带 `detail.remote_code` + `detail.local_code` |
+| D | remote `EMPTY_CANDIDATES` | 返回原 `empty_candidates`,`localQuery` mock 未被调 |
+| D2 | remote 401 / 403 / 404 | **不降级**,返回原 `http_error`,`localQuery` mock 未被调 |
+| E | remote 失败 + 本地损坏 | mock `localQuery` 抛 `DoraError(LOCAL_INDEX_BROKEN)`,断言合成错误带 `detail.remote_code` + `detail.local_code` |
 
 ### Fixture
 
