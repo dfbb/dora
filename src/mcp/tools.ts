@@ -29,7 +29,7 @@ function shouldFallback(e: unknown): boolean {
   if (e.code === ERR.ENGINE_UNREACHABLE) return true;
   if (e.code === ERR.HTTP_ERROR) {
     const status = (e.detail as { status?: number } | undefined)?.status;
-    return typeof status === "number" && (status >= 500 || status === 429);
+    return typeof status === "number" && (status >= 500 || status === 429 || status === 404);
   }
   return false;
 }

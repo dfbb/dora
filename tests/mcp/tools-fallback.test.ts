@@ -79,6 +79,15 @@ describe("dora_query fallback", () => {
     expect(localQueryMock).toHaveBeenCalledOnce();
   });
 
+  it("C3: remote 404 -> falls back to local", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    server.use(http.post(`${ENGINE}/retrieve`, () => new HttpResponse("not found", { status: 404 })));
+    localQueryMock.mockResolvedValue({ skills: [{ name: "local-404" }], source: "local" });
+    const r = await callQuery();
+    expect(r.source).toBe("local");
+    expect(localQueryMock).toHaveBeenCalledOnce();
+  });
+
   it("D: remote returns empty -> NOT a fallback, returns empty_candidates", async () => {
     server.use(http.post(`${ENGINE}/retrieve`, () => HttpResponse.json({ skills: [] })));
     const r = await callQuery();
@@ -86,7 +95,7 @@ describe("dora_query fallback", () => {
     expect(localQueryMock).not.toHaveBeenCalled();
   });
 
-  it.each([401, 403, 404])("D2: remote %i -> NOT a fallback", async (status) => {
+  it.each([401, 403])("D2: remote %i -> NOT a fallback", async (status) => {
     server.use(http.post(`${ENGINE}/retrieve`, () => new HttpResponse("nope", { status })));
     const r = await callQuery();
     expect(r.error).toBe("http_error");
