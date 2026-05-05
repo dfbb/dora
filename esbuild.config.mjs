@@ -11,6 +11,7 @@ const SHARED = {
   sourcemap: false,
   banner: { js: "#!/usr/bin/env node" },
   alias: { "@": "./src" },
+  loader: { ".gz": "binary" },
 };
 
 await build({
