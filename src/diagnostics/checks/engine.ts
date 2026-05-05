@@ -9,7 +9,7 @@ export async function checkEngine(): Promise<CheckResult> {
     const resp = await fetch(cfg.skill_query_url.replace(/\/$/, "") + "/retrieve", {
       method: "POST", signal: ctrl.signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: "doctor-probe", mode: cfg.skill_query_mode, top_k: 1 }),
+      body: JSON.stringify({ query: "doctor-probe" }),
     });
     const ms = Date.now() - t0;
     if (resp.ok || resp.status === 404) {

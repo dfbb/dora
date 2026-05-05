@@ -31,7 +31,7 @@ describe("queryEngine", () => {
     server.use(http.post(`${ENGINE}/retrieve`, () => HttpResponse.json({
       skills: [{ name: "x", url: "https://github.com/a/b", security_level: "safe" }],
     })));
-    const out = await queryEngine("hi", { url: ENGINE, mode: "router", topK: 5, timeoutMs: 5000 });
+    const out = await queryEngine("hi", { url: ENGINE, timeoutMs: 5000 });
     expect(out.skills).toHaveLength(1);
   });
 
@@ -39,26 +39,26 @@ describe("queryEngine", () => {
     server.use(http.post(`${ENGINE}/retrieve`, () => HttpResponse.json({
       skills: [{ name: "x" }, { name: "y" }],
     })));
-    await queryEngine("hi", { url: ENGINE, mode: "router", topK: 5, timeoutMs: 5000 });
+    await queryEngine("hi", { url: ENGINE, timeoutMs: 5000 });
     const rows = readRecentQueryLog(10);
     expect(rows[0]!.candidate_count).toBe(2);
   });
 
   it("throws ENGINE_UNREACHABLE on network error", async () => {
     server.use(http.post(`${ENGINE}/retrieve`, () => HttpResponse.error()));
-    await expect(queryEngine("hi", { url: ENGINE, mode: "router", topK: 5, timeoutMs: 5000 }))
+    await expect(queryEngine("hi", { url: ENGINE, timeoutMs: 5000 }))
       .rejects.toMatchObject({ code: ERR.ENGINE_UNREACHABLE });
   });
 
   it("throws HTTP_ERROR on 5xx", async () => {
     server.use(http.post(`${ENGINE}/retrieve`, () => new HttpResponse("boom", { status: 502 })));
-    await expect(queryEngine("hi", { url: ENGINE, mode: "router", topK: 5, timeoutMs: 5000 }))
+    await expect(queryEngine("hi", { url: ENGINE, timeoutMs: 5000 }))
       .rejects.toMatchObject({ code: ERR.HTTP_ERROR });
   });
 
   it("throws EMPTY_CANDIDATES when skills array empty", async () => {
     server.use(http.post(`${ENGINE}/retrieve`, () => HttpResponse.json({ skills: [] })));
-    await expect(queryEngine("hi", { url: ENGINE, mode: "router", topK: 5, timeoutMs: 5000 }))
+    await expect(queryEngine("hi", { url: ENGINE, timeoutMs: 5000 }))
       .rejects.toMatchObject({ code: ERR.EMPTY_CANDIDATES });
   });
 });

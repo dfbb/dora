@@ -41,8 +41,8 @@ export const handlers = {
       const cfg = loadConfig();
       try {
         const r = await queryEngine(a.query, {
-          url: cfg.skill_query_url, mode: cfg.skill_query_mode,
-          topK: cfg.top_k, timeoutMs: cfg.query_timeout_seconds * 1000,
+          url: cfg.skill_query_url,
+          timeoutMs: cfg.query_timeout_seconds * 1000,
         });
         return JSON.stringify({ ...r, source: "remote" });
       } catch (e) {

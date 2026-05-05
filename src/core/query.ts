@@ -12,8 +12,6 @@ export interface SkillCandidate {
 
 export interface QueryOpts {
   url: string;
-  mode: string;
-  topK: number;
   timeoutMs: number;
 }
 
@@ -30,7 +28,7 @@ export async function queryEngine(query: string, opts: QueryOpts): Promise<Query
       method: "POST",
       signal: ctrl.signal,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, mode: opts.mode, top_k: opts.topK }),
+      body: JSON.stringify({ query }),
     });
   } catch (e) {
     throw new DoraError(ERR.ENGINE_UNREACHABLE, `connect failed: ${(e as Error).message}`, { url: opts.url });
