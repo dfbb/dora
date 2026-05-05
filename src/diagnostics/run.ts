@@ -3,6 +3,7 @@ import { checkGit } from "./checks/git";
 import { checkHome } from "./checks/home";
 import { checkConfig } from "./checks/config";
 import { checkEngine } from "./checks/engine";
+import { checkLocalIndex } from "./checks/local-index";
 import { checkStatus } from "./checks/status";
 import { checkPlatform } from "./checks/platform";
 
@@ -20,6 +21,7 @@ export async function runChecks(): Promise<CheckResult[]> {
   results.push(await checkHome());
   results.push(await checkConfig());
   results.push(await checkEngine());
+  results.push(await checkLocalIndex());
   results.push(await checkStatus());
   const plat = await checkPlatform();
   results.push(plat.mcp);
