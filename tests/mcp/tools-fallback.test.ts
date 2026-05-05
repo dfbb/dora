@@ -95,11 +95,13 @@ describe("dora_query fallback", () => {
     expect(localQueryMock).not.toHaveBeenCalled();
   });
 
-  it.each([401, 403])("D2: remote %i -> NOT a fallback", async (status) => {
+  it.each([401, 403])("D2: remote %i -> falls back to local", async (status) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
     server.use(http.post(`${ENGINE}/retrieve`, () => new HttpResponse("nope", { status })));
+    localQueryMock.mockResolvedValue({ skills: [{ name: "local-auth" }], source: "local" });
     const r = await callQuery();
-    expect(r.error).toBe("http_error");
-    expect(localQueryMock).not.toHaveBeenCalled();
+    expect(r.source).toBe("local");
+    expect(localQueryMock).toHaveBeenCalledOnce();
   });
 
   it("E: remote fails + local broken -> synthesized error", async () => {
