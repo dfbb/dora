@@ -1,7 +1,7 @@
 ---
 name: dora-upgrade
 description: |
-  Upgrade dora to the latest version, then re-run doctor.
+  Upgrade dora to the latest version.
   Trigger: /dora:dora-upgrade
 user-invocable: true
 ---
@@ -19,12 +19,11 @@ Display results as a markdown checklist:
 
 ```
 ## dora upgrade
-- [x] Pulled latest
-- [x] Built and installed v<new-version>
-- [x] doctor: all checks PASS
+- [x] Updated plugin to latest version
+- [ ] Restart Claude Code to apply the update
 ```
 
-Use `[x]` for success, `[ ]` for failure.
+Use `[x]` for success, `[ ]` for pending/failure.
 
 ## Step 4
-Tell the user to **restart their session** to pick up the new version.
+Tell the user: **restart Claude Code** (or run `/reload-plugins`) to load the newly installed version.

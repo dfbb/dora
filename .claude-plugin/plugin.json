@@ -1,6 +1,6 @@
 {
   "name": "dora",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "Dynamically query and load community skills for AI coding agents.",
   "author": { "name": "dfbb" },
   "license": "MIT",
