@@ -97,6 +97,47 @@ describe("createHandlers with platform context", () => {
     expect(typeof out.execution_context).toBe("string");
   });
 
+  it("dora_load returns warning execution_context for unknown platform", async () => {
+    const h = createHandlers({
+      getDetection: () => ({
+        platform: "unknown" as const,
+        source: "env-override" as const,
+        warning: 'invalid DORA_PLATFORM value: "nope"',
+      }),
+    });
+
+    const skillDir = join(work, "skills", "testskill_local");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "# test");
+    writeStatus({
+      version: 1,
+      skills: {
+        testskill_local: {
+          skill_name: "testskill", owner: "local",
+          repo_url: "file:///tmp/test",
+          github_hash: "abc", primary_skill_path: "SKILL.md",
+          security_level: "safe",
+          downloaded_at: new Date().toISOString(),
+          last_used_at: new Date().toISOString(),
+          use_count: 0,
+        },
+      },
+    });
+
+    const out = JSON.parse(
+      await h.dora_load({
+        name: "testskill",
+        repo_url: "file:///tmp/test",
+        security_level: "safe",
+      }),
+    );
+    expect(out.detected_platform).toBe("unknown");
+    expect(out.detection_source).toBe("env-override");
+    expect(out.execution_context).toContain("⚠️");
+    expect(out.execution_context).toContain("nope");
+    expect(out.execution_context).toContain("Platform Adaptation Warning");
+  });
+
   it("dora_load returns null execution_context for claude-code", async () => {
     const h = createHandlers({
       getDetection: () => ({ platform: "claude-code" as const, source: "env-signal" as const }),

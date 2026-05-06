@@ -2,11 +2,10 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parse as parseToml } from "smol-toml";
 import { runInstall } from "@/cli/commands/install";
 
 let work: string;
-const orig = { ...process.env };
+const origHome = process.env.HOME;
 const origCwd = process.cwd();
 
 beforeEach(() => {
@@ -16,7 +15,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   process.chdir(origCwd);
-  process.env = { ...orig };
+  if (origHome !== undefined) process.env.HOME = origHome;
+  else delete process.env.HOME;
   rmSync(work, { recursive: true, force: true });
 });
 
@@ -70,47 +70,67 @@ describe("deep merge (json-merge)", () => {
   });
 });
 
-describe("install modes: toml-merge", () => {
-  it("merges two TOML documents deeply", async () => {
-    // Test toml-merge by dynamically injecting a test adapter
-    const { runInstall: _runInstall } = await import("@/cli/commands/install");
-
-    // We test the underlying logic by creating a real TOML file and invoking
-    // a platform that uses toml-merge. Since no current adapter uses it yet,
-    // we test via a monkey-patched ADAPTERS-equivalent by calling internal
-    // logic directly through a temporary platform file.
-
-    // For now: verify the mode is accepted in types and the import of parseToml works.
-    const toml1 = `[tool]\nname = "foo"\n`;
-    const toml2 = `[tool]\nversion = "1.0"\n`;
-    const doc1 = parseToml(toml1);
-    const doc2 = parseToml(toml2);
-    // deepMerge behavior: both keys present
-    expect(doc1.tool).toEqual({ name: "foo" });
-    expect(doc2.tool).toEqual({ version: "1.0" });
-    // merged manually (mirrors deepMerge logic)
-    const merged = { tool: { ...doc1.tool as object, ...doc2.tool as object } };
-    expect(merged.tool).toEqual({ name: "foo", version: "1.0" });
+describe("install:codex (toml-merge + append-if-missing + backup)", () => {
+  it("creates config.toml and AGENTS.md from scratch", () => {
+    runInstall("codex", []);
+    expect(existsSync(join(work, ".codex/config.toml"))).toBe(true);
+    expect(existsSync(join(work, ".codex/AGENTS.md"))).toBe(true);
+    expect(existsSync(join(work, ".codex/hooks.json"))).toBe(true);
+    const toml = readFileSync(join(work, ".codex/config.toml"), "utf8");
+    expect(toml).toContain("dora");
   });
-});
 
-describe("install modes: append-if-missing", () => {
-  it("skips append when marker already present", async () => {
-    // Test the skip path: file already contains the content
-    const filePath = join(work, "test.txt");
-    writeFileSync(filePath, "existing content\nsome-marker\n");
-    // The runInstall function handles append-if-missing; since no adapter uses
-    // it yet, we verify the mode compiles and is accepted via the type system.
-    // Full integration test deferred to Task 6.
-    expect(readFileSync(filePath, "utf8")).toContain("some-marker");
+  it("toml-merge preserves existing keys", () => {
+    mkdirSync(join(work, ".codex"), { recursive: true });
+    writeFileSync(join(work, ".codex/config.toml"), `[mcp_servers.other]\ncommand = "x"\n`);
+    runInstall("codex", []);
+    const toml = readFileSync(join(work, ".codex/config.toml"), "utf8");
+    expect(toml).toContain("other");
+    expect(toml).toContain("dora");
   });
-});
 
-describe("install modes: backup", () => {
-  it("creates .bak file when backup=true on json-merge", () => {
-    // cursor uses json-merge without backup — we can't test backup through cursor.
-    // Verify backup option is part of the type (compile-time check via TS).
-    // Full integration test deferred to Task 6.
-    expect(true).toBe(true);
+  it("toml-merge creates .bak for existing file", () => {
+    mkdirSync(join(work, ".codex"), { recursive: true });
+    writeFileSync(join(work, ".codex/config.toml"), `[mcp_servers.other]\ncommand = "x"\n`);
+    runInstall("codex", []);
+    expect(existsSync(join(work, ".codex/config.toml.bak"))).toBe(true);
+    const bak = readFileSync(join(work, ".codex/config.toml.bak"), "utf8");
+    expect(bak).toContain("other");
+    expect(bak).not.toContain("dora");
+  });
+
+  it("toml-merge returns error on corrupted TOML", () => {
+    mkdirSync(join(work, ".codex"), { recursive: true });
+    writeFileSync(join(work, ".codex/config.toml"), "{{invalid toml");
+    process.env.HOME = work;
+    const code = runInstall("codex", []);
+    expect(code).toBe(1);
+  });
+
+  it("append-if-missing appends to existing AGENTS.md", () => {
+    mkdirSync(join(work, ".codex"), { recursive: true });
+    writeFileSync(join(work, ".codex/AGENTS.md"), "# My Agent Notes\n");
+    runInstall("codex", []);
+    const content = readFileSync(join(work, ".codex/AGENTS.md"), "utf8");
+    expect(content).toContain("# My Agent Notes");
+    expect(content).toContain("<!-- dora:routing -->");
+  });
+
+  it("append-if-missing skips when marker already present", () => {
+    mkdirSync(join(work, ".codex"), { recursive: true });
+    const original = "# Agents\n\n<!-- dora:routing -->\n# dora\nold content\n";
+    writeFileSync(join(work, ".codex/AGENTS.md"), original);
+    runInstall("codex", []);
+    const content = readFileSync(join(work, ".codex/AGENTS.md"), "utf8");
+    expect(content).toBe(original);
+  });
+
+  it("append-if-missing adds blank line separator", () => {
+    mkdirSync(join(work, ".codex"), { recursive: true });
+    writeFileSync(join(work, ".codex/AGENTS.md"), "# Existing content");
+    runInstall("codex", []);
+    const content = readFileSync(join(work, ".codex/AGENTS.md"), "utf8");
+    const idx = content.indexOf("<!-- dora:routing -->");
+    expect(content.substring(idx - 2, idx)).toBe("\n\n");
   });
 });
