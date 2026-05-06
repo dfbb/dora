@@ -55,9 +55,10 @@ describe("opencode adapter", () => {
 });
 
 describe("claude-code adapter", () => {
-  it("hook returns additionalContext markdown", () => {
+  it("hook returns ROUTING_WITH_CONTEXT including execution_context instruction", () => {
     const out = claudeCode.sessionStartHook({ hook_event_name: "SessionStart" });
-    expect(out.hookSpecificOutput.additionalContext).toMatch(/dora_query/);
+    expect(out.hookSpecificOutput.additionalContext).toContain("dora_query");
+    expect(out.hookSpecificOutput.additionalContext).toContain("execution_context");
   });
 });
 
