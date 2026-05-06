@@ -31,3 +31,6 @@ node_modules/
 *.tsbuildinfo
 .dora/
 coverage/
+
+# Worktrees
+.worktrees/
