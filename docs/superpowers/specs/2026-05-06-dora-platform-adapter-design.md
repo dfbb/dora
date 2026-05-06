@@ -43,10 +43,12 @@ type PlatformId =
 |------|-------------------|---------|
 | Claude Code | `claude-code` | `CLAUDE_PROJECT_DIR`, `CLAUDE_SESSION_ID` |
 | Codex | `Codex`, `codex-mcp-client` | `CODEX_THREAD_ID`, `CODEX_CI` |
-| OpenClaw | *(无标准 clientInfo)* | *(fallback to ~/.openclaw/ 目录检测)* |
+| OpenClaw | *(待确认 clientInfo)* | *(无已知 env var，仅通过 clientInfo 或 `DORA_PLATFORM` 检测)* |
 | OpenCode | *(待确认)* | `OPENCODE`, `OPENCODE_PID` |
 | Gemini CLI | `gemini-cli-mcp-client` | `GEMINI_PROJECT_DIR`, `GEMINI_CLI` |
 | Qwen Code | `qwen-code`, `qwen-cli-mcp-client-*` | `QWEN_PROJECT_DIR` |
+
+**不使用 filesystem 检测。** 与 context-mode 不同，dora 只支持 6 个平台，不需要 `~/.openclaw/` 等目录存在性作为 fallback。所有检测仅通过 `DORA_PLATFORM`、MCP clientInfo、环境变量三层完成，均不命中则返回 `unknown`。这避免了"安装了某 CLI 但当前并非从该 CLI 调用"的误判。
 
 ### 检测入口
 
@@ -182,7 +184,7 @@ npx skills install dora
   "mcpServers": {
     "dora": {
       "command": "npx",
-      "args": ["-y", "dora-skill-server"],
+      "args": ["-y", "TBD-DORA-MCP-ENTRYPOINT"],
       "type": "stdio"
     }
   }
@@ -193,7 +195,7 @@ npx skills install dora
 ```toml
 [mcp_servers.dora]
 command = "npx"
-args = ["-y", "dora-skill-server"]
+args = ["-y", "TBD-DORA-MCP-ENTRYPOINT"]
 ```
 
 **OpenCode**（JSON，`type: "local"` + command 数组）：
@@ -202,7 +204,7 @@ args = ["-y", "dora-skill-server"]
   "mcp": {
     "dora": {
       "type": "local",
-      "command": ["npx", "-y", "dora-skill-server"]
+      "command": ["npx", "-y", "TBD-DORA-MCP-ENTRYPOINT"]
     }
   }
 }
@@ -215,14 +217,24 @@ args = ["-y", "dora-skill-server"]
     "entries": {
       "dora": {
         "command": "npx",
-        "args": ["-y", "dora-skill-server"]
+        "args": ["-y", "TBD-DORA-MCP-ENTRYPOINT"]
       }
     }
   }
 }
 ```
 
+**注意：** 模板中的 `TBD-DORA-MCP-ENTRYPOINT` 为占位符，实施阶段根据 dora 的 `package.json` bin 字段确定实际 MCP 启动命令（可能是 `dora mcp` 或 `npx -y dora mcp`）。
+
 安装脚本根据检测到的平台选择对应模板，**merge 写入**（不覆盖已有配置）。
+
+### 安装安全要求
+
+- **备份**：写入前将原配置文件复制为 `.bak`
+- **原子写入**：通过 temp-file-and-rename 避免写入中断导致配置损坏
+- **幂等**：重复安装时检测 dora MCP 条目是否已存在，已存在则跳过，不重复写入
+- **解析容错**：如果现有配置文件格式损坏（JSON 语法错误、TOML 解析失败），不覆盖，报错退出并提示用户手动修复
+- **深度合并**：仅在目标 key（如 `mcpServers.dora`）插入/更新，保留配置文件中所有其他字段不变
 
 ## 文件结构
 
@@ -282,6 +294,6 @@ Supported: claude-code, codex, openclaw, opencode, gemini-cli, qwen-code
 ## 待验证项
 
 - OpenCode `tool.id` 的实际值（源码中 `Tool.init()` 的 id 字段，当前推断为小写）
-- OpenClaw 的 MCP clientInfo.name（当前无标准值，依赖 config dir 检测）
-- 各平台 MCP 注册模板的实际 merge 行为（安装前需读取现有配置，合并写入，不丢失已有 MCP server）
+- OpenClaw 的 MCP clientInfo.name（当前无标准值，仅通过 `DORA_PLATFORM` 手动指定）
+- dora 的实际 MCP 启动命令（`package.json` bin 字段 → 替换模板中的 `TBD-DORA-MCP-ENTRYPOINT`）
 - OpenCode `type: "local"` 注册格式的 command 字段是数组还是字符串
