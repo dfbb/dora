@@ -1,13 +1,20 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { handlers, toolDefs } from "./tools";
+import { createHandlers, toolDefs } from "./tools";
+import { detectRuntimePlatform } from "@/platforms/detect";
 
 export async function startMcpServer(): Promise<void> {
   const server = new Server(
     { name: "dora", version: "0.1.0" },
     { capabilities: { tools: {} } },
   );
+
+  // Note: MCP SDK Server has no getClientVersion/getClientInfo method in current version.
+  // Passing undefined for clientInfo; platform detection falls back to env signals.
+  const handlers = createHandlers({
+    getDetection: () => detectRuntimePlatform(undefined, process.env),
+  });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: toolDefs as unknown as { name: string; description: string; inputSchema: unknown }[],
