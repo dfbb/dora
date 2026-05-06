@@ -28,9 +28,12 @@ await build({
 });
 chmodSync("start.bundle.mjs", 0o755);
 
-// sessionstart.mjs has no imports — copy directly
-import { copyFileSync } from "node:fs";
-copyFileSync("hooks/sessionstart.mjs", "hooks/sessionstart.bundle.mjs");
+await build({
+  ...SHARED,
+  entryPoints: ["hooks/sessionstart.mjs"],
+  outfile: "hooks/sessionstart.bundle.mjs",
+  external: [],
+});
 chmodSync("hooks/sessionstart.bundle.mjs", 0o755);
 
 console.log("bundles written");
