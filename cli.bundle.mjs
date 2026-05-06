@@ -161,10 +161,10 @@ var require_code = __commonJS({
     function interpolate(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
-    function stringify2(x) {
+    function stringify3(x) {
       return new _Code(safeStringify(x));
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
     function safeStringify(x) {
       return JSON.stringify(x).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -3626,24 +3626,24 @@ var require_fast_uri = __commonJS({
     function normalize(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
-        serialize(parse3(uri, options), options);
+        serialize(parse4(uri, options), options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse3(serialize(uri, options), options);
+        parse4(serialize(uri, options), options);
       }
       return uri;
     }
     function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-      const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
+      const resolved = resolveComponent(parse4(baseURI, schemelessOptions), parse4(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
     function resolveComponent(base, relative2, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse3(serialize(base, options), options);
-        relative2 = parse3(serialize(relative2, options), options);
+        base = parse4(serialize(base, options), options);
+        relative2 = parse4(serialize(relative2, options), options);
       }
       options = options || {};
       if (!options.tolerant && relative2.scheme) {
@@ -3694,12 +3694,12 @@ var require_fast_uri = __commonJS({
     }
     function equal(uriA, uriB, options) {
       if (typeof uriA === "string") {
-        uriA = serialize(parse3(uriA, options), options);
+        uriA = serialize(parse4(uriA, options), options);
       } else if (typeof uriA === "object") {
         uriA = serialize(uriA, options);
       }
       if (typeof uriB === "string") {
-        uriB = serialize(parse3(uriB, options), options);
+        uriB = serialize(parse4(uriB, options), options);
       } else if (typeof uriB === "object") {
         uriB = serialize(uriB, options);
       }
@@ -3768,7 +3768,7 @@ var require_fast_uri = __commonJS({
       return uriTokens.join("");
     }
     var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
-    function parse3(uri, opts) {
+    function parse4(uri, opts) {
       const options = Object.assign({}, opts);
       const parsed = {
         scheme: void 0,
@@ -3862,7 +3862,7 @@ var require_fast_uri = __commonJS({
       resolveComponent,
       equal,
       serialize,
-      parse: parse3
+      parse: parse4
     };
     module.exports = fastUri;
     module.exports.default = fastUri;
@@ -6847,17 +6847,1027 @@ var require_dist = __commonJS({
   }
 });
 
+// src/platforms/detect.ts
+var detect_exports = {};
+__export(detect_exports, {
+  INSTALL_TARGETS: () => INSTALL_TARGETS,
+  detectInstallTarget: () => detectInstallTarget,
+  detectRuntimePlatform: () => detectRuntimePlatform
+});
+function detectRuntimePlatform(clientInfo, env) {
+  const override = env["DORA_PLATFORM"];
+  if (override) {
+    if (VALID_PLATFORMS.has(override)) {
+      return { platform: override, source: "env-override" };
+    }
+    return {
+      platform: "unknown",
+      source: "env-override",
+      warning: `invalid DORA_PLATFORM value: "${override}"`
+    };
+  }
+  if (clientInfo?.name) {
+    const lower = clientInfo.name.toLowerCase();
+    const direct = CLIENT_NAME_MAP[lower];
+    if (direct) return { platform: direct, source: "clientInfo" };
+    if (lower.startsWith("qwen-cli-mcp-client")) {
+      return { platform: "qwen-code", source: "clientInfo" };
+    }
+  }
+  for (const { env: key, platform } of ENV_SIGNAL_MAP) {
+    if (env[key]) return { platform, source: "env-signal" };
+  }
+  return { platform: "unknown", source: "fallback" };
+}
+function detectInstallTarget(argv2, env) {
+  const explicit = argv2[0];
+  if (explicit) {
+    if (explicit === "claude-code") {
+      return { ok: false, reason: "unsupported-install-target", platform: "claude-code", hint: CLAUDE_CODE_HINT };
+    }
+    if (INSTALL_SET.has(explicit)) {
+      return { ok: true, target: explicit };
+    }
+    return { ok: false, reason: "invalid-platform", value: explicit };
+  }
+  const override = env.DORA_PLATFORM;
+  if (override) {
+    if (override === "claude-code") {
+      return { ok: false, reason: "unsupported-install-target", platform: "claude-code", hint: CLAUDE_CODE_HINT };
+    }
+    if (INSTALL_SET.has(override)) {
+      return { ok: true, target: override };
+    }
+    return { ok: false, reason: "invalid-platform", value: override };
+  }
+  for (const { env: key, platform } of ENV_SIGNAL_MAP) {
+    if (!env[key]) continue;
+    if (platform === "claude-code") {
+      return { ok: false, reason: "unsupported-install-target", platform: "claude-code", hint: CLAUDE_CODE_HINT };
+    }
+    if (INSTALL_SET.has(platform)) {
+      return { ok: true, target: platform };
+    }
+  }
+  return { ok: false, reason: "no-signal" };
+}
+var VALID_PLATFORMS, CLIENT_NAME_MAP, ENV_SIGNAL_MAP, INSTALL_TARGETS, INSTALL_SET, CLAUDE_CODE_HINT;
+var init_detect = __esm({
+  "src/platforms/detect.ts"() {
+    "use strict";
+    VALID_PLATFORMS = /* @__PURE__ */ new Set([
+      "claude-code",
+      "codex",
+      "openclaw",
+      "opencode",
+      "gemini-cli",
+      "qwen-code",
+      "cursor"
+    ]);
+    CLIENT_NAME_MAP = {
+      "claude-code": "claude-code",
+      codex: "codex",
+      "codex-mcp-client": "codex",
+      "gemini-cli-mcp-client": "gemini-cli",
+      "qwen-code": "qwen-code"
+    };
+    ENV_SIGNAL_MAP = [
+      { env: "CLAUDE_PROJECT_DIR", platform: "claude-code" },
+      { env: "CLAUDE_SESSION_ID", platform: "claude-code" },
+      { env: "CODEX_THREAD_ID", platform: "codex" },
+      { env: "CODEX_CI", platform: "codex" },
+      { env: "OPENCODE", platform: "opencode" },
+      { env: "OPENCODE_PID", platform: "opencode" },
+      { env: "GEMINI_PROJECT_DIR", platform: "gemini-cli" },
+      { env: "GEMINI_CLI", platform: "gemini-cli" },
+      { env: "QWEN_PROJECT_DIR", platform: "qwen-code" }
+    ];
+    INSTALL_TARGETS = [
+      "codex",
+      "cursor",
+      "opencode",
+      "openclaw",
+      "gemini-cli",
+      "qwen-code"
+    ];
+    INSTALL_SET = new Set(INSTALL_TARGETS);
+    CLAUDE_CODE_HINT = "Claude Code uses plugin marketplace. Run: /plugin marketplace add dfbb/dora && /plugin install dora@dora";
+  }
+});
+
+// node_modules/smol-toml/dist/error.js
+function getLineColFromPtr(string2, ptr) {
+  let lines = string2.slice(0, ptr).split(/\r\n|\n|\r/g);
+  return [lines.length, lines.pop().length + 1];
+}
+function makeCodeBlock(string2, line, column) {
+  let lines = string2.split(/\r\n|\n|\r/g);
+  let codeblock = "";
+  let numberLen = (Math.log10(line + 1) | 0) + 1;
+  for (let i = line - 1; i <= line + 1; i++) {
+    let l = lines[i - 1];
+    if (!l)
+      continue;
+    codeblock += i.toString().padEnd(numberLen, " ");
+    codeblock += ":  ";
+    codeblock += l;
+    codeblock += "\n";
+    if (i === line) {
+      codeblock += " ".repeat(numberLen + column + 2);
+      codeblock += "^\n";
+    }
+  }
+  return codeblock;
+}
+var TomlError;
+var init_error = __esm({
+  "node_modules/smol-toml/dist/error.js"() {
+    TomlError = class extends Error {
+      line;
+      column;
+      codeblock;
+      constructor(message, options) {
+        const [line, column] = getLineColFromPtr(options.toml, options.ptr);
+        const codeblock = makeCodeBlock(options.toml, line, column);
+        super(`Invalid TOML document: ${message}
+
+${codeblock}`, options);
+        this.line = line;
+        this.column = column;
+        this.codeblock = codeblock;
+      }
+    };
+  }
+});
+
+// node_modules/smol-toml/dist/util.js
+function isEscaped(str, ptr) {
+  let i = 0;
+  while (str[ptr - ++i] === "\\")
+    ;
+  return --i && i % 2;
+}
+function indexOfNewline(str, start = 0, end = str.length) {
+  let idx = str.indexOf("\n", start);
+  if (str[idx - 1] === "\r")
+    idx--;
+  return idx <= end ? idx : -1;
+}
+function skipComment(str, ptr) {
+  for (let i = ptr; i < str.length; i++) {
+    let c = str[i];
+    if (c === "\n")
+      return i;
+    if (c === "\r" && str[i + 1] === "\n")
+      return i + 1;
+    if (c < " " && c !== "	" || c === "\x7F") {
+      throw new TomlError("control characters are not allowed in comments", {
+        toml: str,
+        ptr
+      });
+    }
+  }
+  return str.length;
+}
+function skipVoid(str, ptr, banNewLines, banComments) {
+  let c;
+  while (1) {
+    while ((c = str[ptr]) === " " || c === "	" || !banNewLines && (c === "\n" || c === "\r" && str[ptr + 1] === "\n"))
+      ptr++;
+    if (banComments || c !== "#")
+      break;
+    ptr = skipComment(str, ptr);
+  }
+  return ptr;
+}
+function skipUntil(str, ptr, sep2, end, banNewLines = false) {
+  if (!end) {
+    ptr = indexOfNewline(str, ptr);
+    return ptr < 0 ? str.length : ptr;
+  }
+  for (let i = ptr; i < str.length; i++) {
+    let c = str[i];
+    if (c === "#") {
+      i = indexOfNewline(str, i);
+    } else if (c === sep2) {
+      return i + 1;
+    } else if (c === end || banNewLines && (c === "\n" || c === "\r" && str[i + 1] === "\n")) {
+      return i;
+    }
+  }
+  throw new TomlError("cannot find end of structure", {
+    toml: str,
+    ptr
+  });
+}
+function getStringEnd(str, seek) {
+  let first = str[seek];
+  let target = first === str[seek + 1] && str[seek + 1] === str[seek + 2] ? str.slice(seek, seek + 3) : first;
+  seek += target.length - 1;
+  do
+    seek = str.indexOf(target, ++seek);
+  while (seek > -1 && first !== "'" && isEscaped(str, seek));
+  if (seek > -1) {
+    seek += target.length;
+    if (target.length > 1) {
+      if (str[seek] === first)
+        seek++;
+      if (str[seek] === first)
+        seek++;
+    }
+  }
+  return seek;
+}
+var init_util = __esm({
+  "node_modules/smol-toml/dist/util.js"() {
+    init_error();
+  }
+});
+
+// node_modules/smol-toml/dist/date.js
+var DATE_TIME_RE, TomlDate;
+var init_date = __esm({
+  "node_modules/smol-toml/dist/date.js"() {
+    DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[T ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|[-+]\d{2}:\d{2})?$/i;
+    TomlDate = class _TomlDate extends Date {
+      #hasDate = false;
+      #hasTime = false;
+      #offset = null;
+      constructor(date) {
+        let hasDate = true;
+        let hasTime = true;
+        let offset = "Z";
+        if (typeof date === "string") {
+          let match = date.match(DATE_TIME_RE);
+          if (match) {
+            if (!match[1]) {
+              hasDate = false;
+              date = `0000-01-01T${date}`;
+            }
+            hasTime = !!match[2];
+            hasTime && date[10] === " " && (date = date.replace(" ", "T"));
+            if (match[2] && +match[2] > 23) {
+              date = "";
+            } else {
+              offset = match[3] || null;
+              date = date.toUpperCase();
+              if (!offset && hasTime)
+                date += "Z";
+            }
+          } else {
+            date = "";
+          }
+        }
+        super(date);
+        if (!isNaN(this.getTime())) {
+          this.#hasDate = hasDate;
+          this.#hasTime = hasTime;
+          this.#offset = offset;
+        }
+      }
+      isDateTime() {
+        return this.#hasDate && this.#hasTime;
+      }
+      isLocal() {
+        return !this.#hasDate || !this.#hasTime || !this.#offset;
+      }
+      isDate() {
+        return this.#hasDate && !this.#hasTime;
+      }
+      isTime() {
+        return this.#hasTime && !this.#hasDate;
+      }
+      isValid() {
+        return this.#hasDate || this.#hasTime;
+      }
+      toISOString() {
+        let iso2 = super.toISOString();
+        if (this.isDate())
+          return iso2.slice(0, 10);
+        if (this.isTime())
+          return iso2.slice(11, 23);
+        if (this.#offset === null)
+          return iso2.slice(0, -1);
+        if (this.#offset === "Z")
+          return iso2;
+        let offset = +this.#offset.slice(1, 3) * 60 + +this.#offset.slice(4, 6);
+        offset = this.#offset[0] === "-" ? offset : -offset;
+        let offsetDate = new Date(this.getTime() - offset * 6e4);
+        return offsetDate.toISOString().slice(0, -1) + this.#offset;
+      }
+      static wrapAsOffsetDateTime(jsDate, offset = "Z") {
+        let date = new _TomlDate(jsDate);
+        date.#offset = offset;
+        return date;
+      }
+      static wrapAsLocalDateTime(jsDate) {
+        let date = new _TomlDate(jsDate);
+        date.#offset = null;
+        return date;
+      }
+      static wrapAsLocalDate(jsDate) {
+        let date = new _TomlDate(jsDate);
+        date.#hasTime = false;
+        date.#offset = null;
+        return date;
+      }
+      static wrapAsLocalTime(jsDate) {
+        let date = new _TomlDate(jsDate);
+        date.#hasDate = false;
+        date.#offset = null;
+        return date;
+      }
+    };
+  }
+});
+
+// node_modules/smol-toml/dist/primitive.js
+function parseString(str, ptr = 0, endPtr = str.length) {
+  let isLiteral = str[ptr] === "'";
+  let isMultiline = str[ptr++] === str[ptr] && str[ptr] === str[ptr + 1];
+  if (isMultiline) {
+    endPtr -= 2;
+    if (str[ptr += 2] === "\r")
+      ptr++;
+    if (str[ptr] === "\n")
+      ptr++;
+  }
+  let tmp = 0;
+  let isEscape;
+  let parsed = "";
+  let sliceStart = ptr;
+  while (ptr < endPtr - 1) {
+    let c = str[ptr++];
+    if (c === "\n" || c === "\r" && str[ptr] === "\n") {
+      if (!isMultiline) {
+        throw new TomlError("newlines are not allowed in strings", {
+          toml: str,
+          ptr: ptr - 1
+        });
+      }
+    } else if (c < " " && c !== "	" || c === "\x7F") {
+      throw new TomlError("control characters are not allowed in strings", {
+        toml: str,
+        ptr: ptr - 1
+      });
+    }
+    if (isEscape) {
+      isEscape = false;
+      if (c === "x" || c === "u" || c === "U") {
+        let code = str.slice(ptr, ptr += c === "x" ? 2 : c === "u" ? 4 : 8);
+        if (!ESCAPE_REGEX.test(code)) {
+          throw new TomlError("invalid unicode escape", {
+            toml: str,
+            ptr: tmp
+          });
+        }
+        try {
+          parsed += String.fromCodePoint(parseInt(code, 16));
+        } catch {
+          throw new TomlError("invalid unicode escape", {
+            toml: str,
+            ptr: tmp
+          });
+        }
+      } else if (isMultiline && (c === "\n" || c === " " || c === "	" || c === "\r")) {
+        ptr = skipVoid(str, ptr - 1, true);
+        if (str[ptr] !== "\n" && str[ptr] !== "\r") {
+          throw new TomlError("invalid escape: only line-ending whitespace may be escaped", {
+            toml: str,
+            ptr: tmp
+          });
+        }
+        ptr = skipVoid(str, ptr);
+      } else if (c in ESC_MAP) {
+        parsed += ESC_MAP[c];
+      } else {
+        throw new TomlError("unrecognized escape sequence", {
+          toml: str,
+          ptr: tmp
+        });
+      }
+      sliceStart = ptr;
+    } else if (!isLiteral && c === "\\") {
+      tmp = ptr - 1;
+      isEscape = true;
+      parsed += str.slice(sliceStart, tmp);
+    }
+  }
+  return parsed + str.slice(sliceStart, endPtr - 1);
+}
+function parseValue(value, toml, ptr, integersAsBigInt) {
+  if (value === "true")
+    return true;
+  if (value === "false")
+    return false;
+  if (value === "-inf")
+    return -Infinity;
+  if (value === "inf" || value === "+inf")
+    return Infinity;
+  if (value === "nan" || value === "+nan" || value === "-nan")
+    return NaN;
+  if (value === "-0")
+    return integersAsBigInt ? 0n : 0;
+  let isInt = INT_REGEX.test(value);
+  if (isInt || FLOAT_REGEX.test(value)) {
+    if (LEADING_ZERO.test(value)) {
+      throw new TomlError("leading zeroes are not allowed", {
+        toml,
+        ptr
+      });
+    }
+    value = value.replace(/_/g, "");
+    let numeric = +value;
+    if (isNaN(numeric)) {
+      throw new TomlError("invalid number", {
+        toml,
+        ptr
+      });
+    }
+    if (isInt) {
+      if ((isInt = !Number.isSafeInteger(numeric)) && !integersAsBigInt) {
+        throw new TomlError("integer value cannot be represented losslessly", {
+          toml,
+          ptr
+        });
+      }
+      if (isInt || integersAsBigInt === true)
+        numeric = BigInt(value);
+    }
+    return numeric;
+  }
+  const date = new TomlDate(value);
+  if (!date.isValid()) {
+    throw new TomlError("invalid value", {
+      toml,
+      ptr
+    });
+  }
+  return date;
+}
+var INT_REGEX, FLOAT_REGEX, LEADING_ZERO, ESCAPE_REGEX, ESC_MAP;
+var init_primitive = __esm({
+  "node_modules/smol-toml/dist/primitive.js"() {
+    init_util();
+    init_date();
+    init_error();
+    INT_REGEX = /^((0x[0-9a-fA-F](_?[0-9a-fA-F])*)|(([+-]|0[ob])?\d(_?\d)*))$/;
+    FLOAT_REGEX = /^[+-]?\d(_?\d)*(\.\d(_?\d)*)?([eE][+-]?\d(_?\d)*)?$/;
+    LEADING_ZERO = /^[+-]?0[0-9_]/;
+    ESCAPE_REGEX = /^[0-9a-f]{2,8}$/i;
+    ESC_MAP = {
+      b: "\b",
+      t: "	",
+      n: "\n",
+      f: "\f",
+      r: "\r",
+      e: "\x1B",
+      '"': '"',
+      "\\": "\\"
+    };
+  }
+});
+
+// node_modules/smol-toml/dist/extract.js
+function sliceAndTrimEndOf(str, startPtr, endPtr) {
+  let value = str.slice(startPtr, endPtr);
+  let commentIdx = value.indexOf("#");
+  if (commentIdx > -1) {
+    skipComment(str, commentIdx);
+    value = value.slice(0, commentIdx);
+  }
+  return [value.trimEnd(), commentIdx];
+}
+function extractValue(str, ptr, end, depth, integersAsBigInt) {
+  if (depth === 0) {
+    throw new TomlError("document contains excessively nested structures. aborting.", {
+      toml: str,
+      ptr
+    });
+  }
+  let c = str[ptr];
+  if (c === "[" || c === "{") {
+    let [value, endPtr2] = c === "[" ? parseArray(str, ptr, depth, integersAsBigInt) : parseInlineTable(str, ptr, depth, integersAsBigInt);
+    if (end) {
+      endPtr2 = skipVoid(str, endPtr2);
+      if (str[endPtr2] === ",")
+        endPtr2++;
+      else if (str[endPtr2] !== end) {
+        throw new TomlError("expected comma or end of structure", {
+          toml: str,
+          ptr: endPtr2
+        });
+      }
+    }
+    return [value, endPtr2];
+  }
+  let endPtr;
+  if (c === '"' || c === "'") {
+    endPtr = getStringEnd(str, ptr);
+    let parsed = parseString(str, ptr, endPtr);
+    if (end) {
+      endPtr = skipVoid(str, endPtr);
+      if (str[endPtr] && str[endPtr] !== "," && str[endPtr] !== end && str[endPtr] !== "\n" && str[endPtr] !== "\r") {
+        throw new TomlError("unexpected character encountered", {
+          toml: str,
+          ptr: endPtr
+        });
+      }
+      endPtr += +(str[endPtr] === ",");
+    }
+    return [parsed, endPtr];
+  }
+  endPtr = skipUntil(str, ptr, ",", end);
+  let slice = sliceAndTrimEndOf(str, ptr, endPtr - +(str[endPtr - 1] === ","));
+  if (!slice[0]) {
+    throw new TomlError("incomplete key-value declaration: no value specified", {
+      toml: str,
+      ptr
+    });
+  }
+  if (end && slice[1] > -1) {
+    endPtr = skipVoid(str, ptr + slice[1]);
+    endPtr += +(str[endPtr] === ",");
+  }
+  return [
+    parseValue(slice[0], str, ptr, integersAsBigInt),
+    endPtr
+  ];
+}
+var init_extract = __esm({
+  "node_modules/smol-toml/dist/extract.js"() {
+    init_primitive();
+    init_struct();
+    init_util();
+    init_error();
+  }
+});
+
+// node_modules/smol-toml/dist/struct.js
+function parseKey(str, ptr, end = "=") {
+  let dot = ptr - 1;
+  let parsed = [];
+  let endPtr = str.indexOf(end, ptr);
+  if (endPtr < 0) {
+    throw new TomlError("incomplete key-value: cannot find end of key", {
+      toml: str,
+      ptr
+    });
+  }
+  do {
+    let c = str[ptr = ++dot];
+    if (c !== " " && c !== "	") {
+      if (c === '"' || c === "'") {
+        if (c === str[ptr + 1] && c === str[ptr + 2]) {
+          throw new TomlError("multiline strings are not allowed in keys", {
+            toml: str,
+            ptr
+          });
+        }
+        let eos = getStringEnd(str, ptr);
+        if (eos < 0) {
+          throw new TomlError("unfinished string encountered", {
+            toml: str,
+            ptr
+          });
+        }
+        dot = str.indexOf(".", eos);
+        let strEnd = str.slice(eos, dot < 0 || dot > endPtr ? endPtr : dot);
+        let newLine = indexOfNewline(strEnd);
+        if (newLine > -1) {
+          throw new TomlError("newlines are not allowed in keys", {
+            toml: str,
+            ptr: ptr + dot + newLine
+          });
+        }
+        if (strEnd.trimStart()) {
+          throw new TomlError("found extra tokens after the string part", {
+            toml: str,
+            ptr: eos
+          });
+        }
+        if (endPtr < eos) {
+          endPtr = str.indexOf(end, eos);
+          if (endPtr < 0) {
+            throw new TomlError("incomplete key-value: cannot find end of key", {
+              toml: str,
+              ptr
+            });
+          }
+        }
+        parsed.push(parseString(str, ptr, eos));
+      } else {
+        dot = str.indexOf(".", ptr);
+        let part = str.slice(ptr, dot < 0 || dot > endPtr ? endPtr : dot);
+        if (!KEY_PART_RE.test(part)) {
+          throw new TomlError("only letter, numbers, dashes and underscores are allowed in keys", {
+            toml: str,
+            ptr
+          });
+        }
+        parsed.push(part.trimEnd());
+      }
+    }
+  } while (dot + 1 && dot < endPtr);
+  return [parsed, skipVoid(str, endPtr + 1, true, true)];
+}
+function parseInlineTable(str, ptr, depth, integersAsBigInt) {
+  let res = {};
+  let seen = /* @__PURE__ */ new Set();
+  let c;
+  ptr++;
+  while ((c = str[ptr++]) !== "}" && c) {
+    if (c === ",") {
+      throw new TomlError("expected value, found comma", {
+        toml: str,
+        ptr: ptr - 1
+      });
+    } else if (c === "#")
+      ptr = skipComment(str, ptr);
+    else if (c !== " " && c !== "	" && c !== "\n" && c !== "\r") {
+      let k;
+      let t = res;
+      let hasOwn = false;
+      let [key, keyEndPtr] = parseKey(str, ptr - 1);
+      for (let i = 0; i < key.length; i++) {
+        if (i)
+          t = hasOwn ? t[k] : t[k] = {};
+        k = key[i];
+        if ((hasOwn = Object.hasOwn(t, k)) && (typeof t[k] !== "object" || seen.has(t[k]))) {
+          throw new TomlError("trying to redefine an already defined value", {
+            toml: str,
+            ptr
+          });
+        }
+        if (!hasOwn && k === "__proto__") {
+          Object.defineProperty(t, k, { enumerable: true, configurable: true, writable: true });
+        }
+      }
+      if (hasOwn) {
+        throw new TomlError("trying to redefine an already defined value", {
+          toml: str,
+          ptr
+        });
+      }
+      let [value, valueEndPtr] = extractValue(str, keyEndPtr, "}", depth - 1, integersAsBigInt);
+      seen.add(value);
+      t[k] = value;
+      ptr = valueEndPtr;
+    }
+  }
+  if (!c) {
+    throw new TomlError("unfinished table encountered", {
+      toml: str,
+      ptr
+    });
+  }
+  return [res, ptr];
+}
+function parseArray(str, ptr, depth, integersAsBigInt) {
+  let res = [];
+  let c;
+  ptr++;
+  while ((c = str[ptr++]) !== "]" && c) {
+    if (c === ",") {
+      throw new TomlError("expected value, found comma", {
+        toml: str,
+        ptr: ptr - 1
+      });
+    } else if (c === "#")
+      ptr = skipComment(str, ptr);
+    else if (c !== " " && c !== "	" && c !== "\n" && c !== "\r") {
+      let e = extractValue(str, ptr - 1, "]", depth - 1, integersAsBigInt);
+      res.push(e[0]);
+      ptr = e[1];
+    }
+  }
+  if (!c) {
+    throw new TomlError("unfinished array encountered", {
+      toml: str,
+      ptr
+    });
+  }
+  return [res, ptr];
+}
+var KEY_PART_RE;
+var init_struct = __esm({
+  "node_modules/smol-toml/dist/struct.js"() {
+    init_primitive();
+    init_extract();
+    init_util();
+    init_error();
+    KEY_PART_RE = /^[a-zA-Z0-9-_]+[ \t]*$/;
+  }
+});
+
+// node_modules/smol-toml/dist/parse.js
+function peekTable(key, table, meta, type) {
+  let t = table;
+  let m = meta;
+  let k;
+  let hasOwn = false;
+  let state;
+  for (let i = 0; i < key.length; i++) {
+    if (i) {
+      t = hasOwn ? t[k] : t[k] = {};
+      m = (state = m[k]).c;
+      if (type === 0 && (state.t === 1 || state.t === 2)) {
+        return null;
+      }
+      if (state.t === 2) {
+        let l = t.length - 1;
+        t = t[l];
+        m = m[l].c;
+      }
+    }
+    k = key[i];
+    if ((hasOwn = Object.hasOwn(t, k)) && m[k]?.t === 0 && m[k]?.d) {
+      return null;
+    }
+    if (!hasOwn) {
+      if (k === "__proto__") {
+        Object.defineProperty(t, k, { enumerable: true, configurable: true, writable: true });
+        Object.defineProperty(m, k, { enumerable: true, configurable: true, writable: true });
+      }
+      m[k] = {
+        t: i < key.length - 1 && type === 2 ? 3 : type,
+        d: false,
+        i: 0,
+        c: {}
+      };
+    }
+  }
+  state = m[k];
+  if (state.t !== type && !(type === 1 && state.t === 3)) {
+    return null;
+  }
+  if (type === 2) {
+    if (!state.d) {
+      state.d = true;
+      t[k] = [];
+    }
+    t[k].push(t = {});
+    state.c[state.i++] = state = { t: 1, d: false, i: 0, c: {} };
+  }
+  if (state.d) {
+    return null;
+  }
+  state.d = true;
+  if (type === 1) {
+    t = hasOwn ? t[k] : t[k] = {};
+  } else if (type === 0 && hasOwn) {
+    return null;
+  }
+  return [k, t, state.c];
+}
+function parse3(toml, { maxDepth = 1e3, integersAsBigInt } = {}) {
+  let res = {};
+  let meta = {};
+  let tbl = res;
+  let m = meta;
+  for (let ptr = skipVoid(toml, 0); ptr < toml.length; ) {
+    if (toml[ptr] === "[") {
+      let isTableArray = toml[++ptr] === "[";
+      let k = parseKey(toml, ptr += +isTableArray, "]");
+      if (isTableArray) {
+        if (toml[k[1] - 1] !== "]") {
+          throw new TomlError("expected end of table declaration", {
+            toml,
+            ptr: k[1] - 1
+          });
+        }
+        k[1]++;
+      }
+      let p = peekTable(
+        k[0],
+        res,
+        meta,
+        isTableArray ? 2 : 1
+        /* Type.EXPLICIT */
+      );
+      if (!p) {
+        throw new TomlError("trying to redefine an already defined table or value", {
+          toml,
+          ptr
+        });
+      }
+      m = p[2];
+      tbl = p[1];
+      ptr = k[1];
+    } else {
+      let k = parseKey(toml, ptr);
+      let p = peekTable(
+        k[0],
+        tbl,
+        m,
+        0
+        /* Type.DOTTED */
+      );
+      if (!p) {
+        throw new TomlError("trying to redefine an already defined table or value", {
+          toml,
+          ptr
+        });
+      }
+      let v = extractValue(toml, k[1], void 0, maxDepth, integersAsBigInt);
+      p[1][p[0]] = v[0];
+      ptr = v[1];
+    }
+    ptr = skipVoid(toml, ptr, true);
+    if (toml[ptr] && toml[ptr] !== "\n" && toml[ptr] !== "\r") {
+      throw new TomlError("each key-value declaration must be followed by an end-of-line", {
+        toml,
+        ptr
+      });
+    }
+    ptr = skipVoid(toml, ptr);
+  }
+  return res;
+}
+var init_parse = __esm({
+  "node_modules/smol-toml/dist/parse.js"() {
+    init_struct();
+    init_extract();
+    init_util();
+    init_error();
+  }
+});
+
+// node_modules/smol-toml/dist/stringify.js
+function extendedTypeOf(obj) {
+  let type = typeof obj;
+  if (type === "object") {
+    if (Array.isArray(obj))
+      return "array";
+    if (obj instanceof Date)
+      return "date";
+  }
+  return type;
+}
+function isArrayOfTables(obj) {
+  for (let i = 0; i < obj.length; i++) {
+    if (extendedTypeOf(obj[i]) !== "object")
+      return false;
+  }
+  return obj.length != 0;
+}
+function formatString(s) {
+  return JSON.stringify(s).replace(/\x7f/g, "\\u007f");
+}
+function stringifyValue(val, type, depth, numberAsFloat) {
+  if (depth === 0) {
+    throw new Error("Could not stringify the object: maximum object depth exceeded");
+  }
+  if (type === "number") {
+    if (isNaN(val))
+      return "nan";
+    if (val === Infinity)
+      return "inf";
+    if (val === -Infinity)
+      return "-inf";
+    if (numberAsFloat && Number.isInteger(val))
+      return val.toFixed(1);
+    return val.toString();
+  }
+  if (type === "bigint" || type === "boolean") {
+    return val.toString();
+  }
+  if (type === "string") {
+    return formatString(val);
+  }
+  if (type === "date") {
+    if (isNaN(val.getTime())) {
+      throw new TypeError("cannot serialize invalid date");
+    }
+    return val.toISOString();
+  }
+  if (type === "object") {
+    return stringifyInlineTable(val, depth, numberAsFloat);
+  }
+  if (type === "array") {
+    return stringifyArray(val, depth, numberAsFloat);
+  }
+}
+function stringifyInlineTable(obj, depth, numberAsFloat) {
+  let keys = Object.keys(obj);
+  if (keys.length === 0)
+    return "{}";
+  let res = "{ ";
+  for (let i = 0; i < keys.length; i++) {
+    let k = keys[i];
+    if (i)
+      res += ", ";
+    res += BARE_KEY.test(k) ? k : formatString(k);
+    res += " = ";
+    res += stringifyValue(obj[k], extendedTypeOf(obj[k]), depth - 1, numberAsFloat);
+  }
+  return res + " }";
+}
+function stringifyArray(array2, depth, numberAsFloat) {
+  if (array2.length === 0)
+    return "[]";
+  let res = "[ ";
+  for (let i = 0; i < array2.length; i++) {
+    if (i)
+      res += ", ";
+    if (array2[i] === null || array2[i] === void 0) {
+      throw new TypeError("arrays cannot contain null or undefined values");
+    }
+    res += stringifyValue(array2[i], extendedTypeOf(array2[i]), depth - 1, numberAsFloat);
+  }
+  return res + " ]";
+}
+function stringifyArrayTable(array2, key, depth, numberAsFloat) {
+  if (depth === 0) {
+    throw new Error("Could not stringify the object: maximum object depth exceeded");
+  }
+  let res = "";
+  for (let i = 0; i < array2.length; i++) {
+    res += `${res && "\n"}[[${key}]]
+`;
+    res += stringifyTable(0, array2[i], key, depth, numberAsFloat);
+  }
+  return res;
+}
+function stringifyTable(tableKey, obj, prefix, depth, numberAsFloat) {
+  if (depth === 0) {
+    throw new Error("Could not stringify the object: maximum object depth exceeded");
+  }
+  let preamble = "";
+  let tables = "";
+  let keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i++) {
+    let k = keys[i];
+    if (obj[k] !== null && obj[k] !== void 0) {
+      let type = extendedTypeOf(obj[k]);
+      if (type === "symbol" || type === "function") {
+        throw new TypeError(`cannot serialize values of type '${type}'`);
+      }
+      let key = BARE_KEY.test(k) ? k : formatString(k);
+      if (type === "array" && isArrayOfTables(obj[k])) {
+        tables += (tables && "\n") + stringifyArrayTable(obj[k], prefix ? `${prefix}.${key}` : key, depth - 1, numberAsFloat);
+      } else if (type === "object") {
+        let tblKey = prefix ? `${prefix}.${key}` : key;
+        tables += (tables && "\n") + stringifyTable(tblKey, obj[k], tblKey, depth - 1, numberAsFloat);
+      } else {
+        preamble += key;
+        preamble += " = ";
+        preamble += stringifyValue(obj[k], type, depth, numberAsFloat);
+        preamble += "\n";
+      }
+    }
+  }
+  if (tableKey && (preamble || !tables))
+    preamble = preamble ? `[${tableKey}]
+${preamble}` : `[${tableKey}]`;
+  return preamble && tables ? `${preamble}
+${tables}` : preamble || tables;
+}
+function stringify2(obj, { maxDepth = 1e3, numbersAsFloat = false } = {}) {
+  if (extendedTypeOf(obj) !== "object") {
+    throw new TypeError("stringify can only be called with an object");
+  }
+  let str = stringifyTable(0, obj, "", maxDepth, numbersAsFloat);
+  if (str[str.length - 1] !== "\n")
+    return str + "\n";
+  return str;
+}
+var BARE_KEY;
+var init_stringify = __esm({
+  "node_modules/smol-toml/dist/stringify.js"() {
+    BARE_KEY = /^[a-z0-9-_]+$/i;
+  }
+});
+
+// node_modules/smol-toml/dist/index.js
+var init_dist = __esm({
+  "node_modules/smol-toml/dist/index.js"() {
+    init_parse();
+    init_stringify();
+    init_date();
+    init_error();
+  }
+});
+
 // src/platforms/types.ts
-var ROUTING;
+var ROUTING, ROUTING_WITH_CONTEXT;
 var init_types = __esm({
   "src/platforms/types.ts"() {
     "use strict";
     ROUTING = `You have access to dora \u2014 a tool that finds and loads community skills for tasks you don't already know how to do. When the user describes a non-trivial task and you're unsure which approach is best, call the dora_query MCP tool first.`;
+    ROUTING_WITH_CONTEXT = [
+      "<!-- dora:routing -->",
+      "# dora",
+      "",
+      ROUTING,
+      "",
+      "When dora_load returns a non-null execution_context field, output it before executing the loaded skill."
+    ].join("\n");
   }
 });
 
 // src/platforms/codex.ts
-var HOOKS_JSON, CONFIG_TOML, AGENTS_MD, codex;
+var HOOKS_JSON, CONFIG_TOML, codex;
 var init_codex = __esm({
   "src/platforms/codex.ts"() {
     "use strict";
@@ -6871,19 +7881,15 @@ var init_codex = __esm({
 command = "dora"
 args = ["mcp"]
 `;
-    AGENTS_MD = `# dora
-
-${ROUTING}
-`;
     codex = {
       name: "codex",
       installFiles: () => [
-        { path: "~/.codex/config.toml", content: CONFIG_TOML, mode: "skip-if-exists" },
+        { path: "~/.codex/config.toml", content: CONFIG_TOML, mode: "toml-merge", backup: true, atomic: true },
         { path: "~/.codex/hooks.json", content: HOOKS_JSON, mode: "json-merge" },
-        { path: "~/.codex/AGENTS.md", content: AGENTS_MD, mode: "skip-if-exists" }
+        { path: "~/.codex/AGENTS.md", content: ROUTING_WITH_CONTEXT + "\n", mode: "append-if-missing", marker: "<!-- dora:routing -->" }
       ],
       sessionStartHook: () => ({
-        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING }
+        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
       })
     };
   }
@@ -6917,7 +7923,7 @@ ${ROUTING}
 });
 
 // src/platforms/opencode.ts
-var OPENCODE_JSON, AGENTS, opencode;
+var OPENCODE_JSON, opencode;
 var init_opencode = __esm({
   "src/platforms/opencode.ts"() {
     "use strict";
@@ -6926,18 +7932,78 @@ var init_opencode = __esm({
       $schema: "https://opencode.ai/config.json",
       mcp: { dora: { type: "local", command: ["dora", "mcp"] } }
     }, null, 2);
-    AGENTS = `# dora
-
-${ROUTING}
-`;
     opencode = {
       name: "opencode",
       installFiles: () => [
         { path: "opencode.json", content: OPENCODE_JSON, mode: "json-merge" },
-        { path: "AGENTS.md", content: AGENTS, mode: "skip-if-exists" }
+        { path: "AGENTS.md", content: ROUTING_WITH_CONTEXT + "\n", mode: "append-if-missing", marker: "<!-- dora:routing -->" }
       ],
       sessionStartHook: () => ({
-        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING }
+        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
+      })
+    };
+  }
+});
+
+// src/platforms/gemini-cli.ts
+var SETTINGS_JSON, geminiCli;
+var init_gemini_cli = __esm({
+  "src/platforms/gemini-cli.ts"() {
+    "use strict";
+    init_types();
+    SETTINGS_JSON = JSON.stringify({
+      mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio" } }
+    }, null, 2);
+    geminiCli = {
+      name: "gemini-cli",
+      installFiles: () => [
+        { path: "~/.gemini/settings.json", content: SETTINGS_JSON, mode: "json-merge", backup: true, atomic: true },
+        { path: "GEMINI.md", content: ROUTING_WITH_CONTEXT + "\n", mode: "append-if-missing", marker: "<!-- dora:routing -->" }
+      ],
+      sessionStartHook: () => ({
+        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
+      })
+    };
+  }
+});
+
+// src/platforms/openclaw.ts
+var OPENCLAW_JSON, openClaw;
+var init_openclaw = __esm({
+  "src/platforms/openclaw.ts"() {
+    "use strict";
+    init_types();
+    OPENCLAW_JSON = JSON.stringify({
+      plugins: { entries: { dora: { command: "dora", args: ["mcp"] } } }
+    }, null, 2);
+    openClaw = {
+      name: "openclaw",
+      installFiles: () => [
+        { path: "openclaw.json", content: OPENCLAW_JSON, mode: "json-merge", backup: true, atomic: true }
+      ],
+      sessionStartHook: () => ({
+        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
+      })
+    };
+  }
+});
+
+// src/platforms/qwen-code.ts
+var SETTINGS_JSON2, qwenCode;
+var init_qwen_code = __esm({
+  "src/platforms/qwen-code.ts"() {
+    "use strict";
+    init_types();
+    SETTINGS_JSON2 = JSON.stringify({
+      mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio" } }
+    }, null, 2);
+    qwenCode = {
+      name: "qwen-code",
+      installFiles: () => [
+        { path: "~/.qwen/settings.json", content: SETTINGS_JSON2, mode: "json-merge", backup: true, atomic: true }
+      ],
+      sessionStartHook: () => ({
+        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
       })
     };
   }
@@ -6948,24 +8014,29 @@ var install_exports = {};
 __export(install_exports, {
   runInstall: () => runInstall
 });
-import { existsSync as existsSync9, mkdirSync as mkdirSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
+import { copyFileSync, existsSync as existsSync9, mkdirSync as mkdirSync5, readFileSync as readFileSync5, renameSync as renameSync3, writeFileSync as writeFileSync3 } from "node:fs";
 import { homedir as homedir3 } from "node:os";
 import { dirname as dirname2, join as join6 } from "node:path";
 function expandTilde(p) {
   return p.startsWith("~/") ? join6(homedir3(), p.slice(2)) : p;
 }
-function shallowMergeJson(existing, incoming) {
-  if (typeof existing !== "object" || existing === null) return incoming;
-  if (typeof incoming !== "object" || incoming === null) return incoming;
+function deepMerge(existing, incoming) {
+  if (typeof existing !== "object" || existing === null || Array.isArray(existing)) return incoming;
+  if (typeof incoming !== "object" || incoming === null || Array.isArray(incoming)) return incoming;
   const out = { ...existing };
   for (const [k, v] of Object.entries(incoming)) {
-    if (typeof v === "object" && v !== null && typeof out[k] === "object") {
-      out[k] = { ...out[k], ...v };
-    } else {
-      out[k] = v;
-    }
+    out[k] = deepMerge(out[k], v);
   }
   return out;
+}
+function writeSafe(path, content, atomic) {
+  if (atomic) {
+    const tmp = path + ".tmp." + process.pid;
+    writeFileSync3(tmp, content, "utf8");
+    renameSync3(tmp, path);
+  } else {
+    writeFileSync3(path, content, "utf8");
+  }
 }
 function runInstall(platform, argv2) {
   const adapter = ADAPTERS[platform];
@@ -6988,13 +8059,54 @@ function runInstall(platform, argv2) {
 `);
       continue;
     }
-    if (f.mode === "json-merge" && existsSync9(target)) {
-      const existing = JSON.parse(readFileSync5(target, "utf8"));
-      const incoming = JSON.parse(f.content);
-      writeFileSync3(target, JSON.stringify(shallowMergeJson(existing, incoming), null, 2) + "\n", "utf8");
-    } else {
-      writeFileSync3(target, f.content, "utf8");
+    if (f.mode === "append-if-missing" && existsSync9(target)) {
+      const existing = readFileSync5(target, "utf8");
+      const marker = f.marker ?? f.content.trim();
+      if (existing.includes(marker)) {
+        process.stdout.write(`skip (present): ${target}
+`);
+        continue;
+      }
+      const appended = existing.trimEnd() + "\n\n" + f.content + "\n";
+      if (f.backup) copyFileSync(target, target + ".bak");
+      writeSafe(target, appended, f.atomic ?? false);
+      process.stdout.write(`appended: ${target}
+`);
+      continue;
     }
+    if (f.mode === "json-merge" && existsSync9(target)) {
+      if (f.backup) copyFileSync(target, target + ".bak");
+      let existing;
+      try {
+        existing = JSON.parse(readFileSync5(target, "utf8"));
+      } catch {
+        process.stderr.write(`error: ${target} has invalid JSON, not overwriting
+`);
+        return 1;
+      }
+      const incoming = JSON.parse(f.content);
+      writeSafe(target, JSON.stringify(deepMerge(existing, incoming), null, 2) + "\n", f.atomic ?? false);
+      process.stdout.write(`wrote: ${target}
+`);
+      continue;
+    }
+    if (f.mode === "toml-merge" && existsSync9(target)) {
+      if (f.backup) copyFileSync(target, target + ".bak");
+      try {
+        const existing = parse3(readFileSync5(target, "utf8"));
+        const incoming = parse3(f.content);
+        writeSafe(target, stringify2(deepMerge(existing, incoming)), f.atomic ?? false);
+      } catch (e) {
+        process.stderr.write(`error: ${target} has invalid TOML or merge failed: ${e.message}
+`);
+        return 1;
+      }
+      process.stdout.write(`wrote: ${target}
+`);
+      continue;
+    }
+    if (f.backup && existsSync9(target)) copyFileSync(target, target + ".bak");
+    writeSafe(target, f.content, f.atomic ?? false);
     process.stdout.write(`wrote: ${target}
 `);
   }
@@ -7004,10 +8116,21 @@ var ADAPTERS;
 var init_install = __esm({
   "src/cli/commands/install.ts"() {
     "use strict";
+    init_dist();
     init_codex();
     init_cursor();
     init_opencode();
-    ADAPTERS = { codex, cursor, opencode };
+    init_gemini_cli();
+    init_openclaw();
+    init_qwen_code();
+    ADAPTERS = {
+      codex,
+      cursor,
+      opencode,
+      "gemini-cli": geminiCli,
+      openclaw: openClaw,
+      "qwen-code": qwenCode
+    };
   }
 });
 
@@ -7021,7 +8144,7 @@ var init_claude_code = __esm({
       name: "claude-code",
       installFiles: () => [],
       sessionStartHook: () => ({
-        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING }
+        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
       })
     };
   }
@@ -13052,6 +14175,109 @@ async function runDoctor() {
 }
 
 // src/mcp/tools.ts
+init_detect();
+
+// src/platforms/tool-mapping.ts
+var TOOL_MAPPINGS = {
+  "claude-code": { kind: "native" },
+  cursor: { kind: "native" },
+  openclaw: { kind: "unverified" },
+  "qwen-code": { kind: "unverified" },
+  opencode: {
+    kind: "mapping",
+    tools: {
+      Read: "read",
+      Write: "write",
+      Edit: "edit",
+      Bash: "shell",
+      Skill: "skill",
+      Task: "task",
+      WebFetch: "fetch",
+      WebSearch: "search",
+      TodoWrite: "todo"
+    }
+  },
+  "gemini-cli": {
+    kind: "mapping",
+    tools: {
+      Read: "read_file",
+      Write: "write_file",
+      Edit: "replace",
+      Bash: "run_shell_command",
+      Skill: "activate_skill",
+      WebSearch: "google_web_search",
+      WebFetch: "web_fetch",
+      Task: null
+    }
+  },
+  codex: {
+    kind: "mapping",
+    tools: {
+      Read: "native file tools",
+      Write: "native file tools",
+      Edit: "native file tools",
+      Bash: "native shell tools",
+      Skill: "native loading",
+      Task: "spawn_agent",
+      TodoWrite: "update_plan"
+    }
+  },
+  unknown: {
+    kind: "warning",
+    text: [
+      "## Platform Adaptation Warning",
+      "",
+      "Could not detect your CLI platform. This skill uses Claude Code tool names",
+      "(Read, Write, Edit, Bash, Skill, Task, etc.). If your CLI uses different",
+      "tool names, you may need to adapt the commands manually.",
+      "",
+      "To specify your platform explicitly, set: DORA_PLATFORM=<platform-id>",
+      "Supported overrides: claude-code, codex, openclaw, opencode, gemini-cli, qwen-code, cursor (manual fallback only)"
+    ].join("\n")
+  }
+};
+function generateExecutionContext(detection) {
+  const mapping = TOOL_MAPPINGS[detection.platform];
+  let context = null;
+  switch (mapping.kind) {
+    case "native":
+      context = null;
+      break;
+    case "mapping": {
+      const lines = ["## Tool Name Mapping", "", "This skill uses Claude Code tool names. On your platform, use:", ""];
+      for (const [from, to] of Object.entries(mapping.tools)) {
+        lines.push(to === null ? `- \`${from}\` \u2192 Not supported on this platform` : `- \`${from}\` \u2192 \`${to}\``);
+      }
+      lines.push("", "After reading the skill instructions, translate all tool references using this mapping.");
+      context = lines.join("\n");
+      break;
+    }
+    case "unverified":
+      context = [
+        "## Platform Compatibility Note",
+        "",
+        "This platform's tool names have not been verified against Claude Code conventions.",
+        "Tool names may be identical. If a tool call fails, adapt to your platform's native tool names."
+      ].join("\n");
+      break;
+    case "warning":
+      context = mapping.text;
+      break;
+  }
+  if (detection.warning && context) {
+    context = `> \u26A0\uFE0F ${detection.warning}
+
+${context}`;
+  } else if (detection.warning) {
+    context = `> \u26A0\uFE0F ${detection.warning}`;
+  }
+  return context;
+}
+
+// src/mcp/tools.ts
+var defaultPlatformContext = {
+  getDetection: () => detectRuntimePlatform(void 0, process.env)
+};
 var QuerySchema = z3.object({ query: z3.string().min(1) });
 var LoadSchema = z3.object({
   name: z3.string().min(1),
@@ -13073,86 +14299,96 @@ function shouldFallback(e) {
   }
   return false;
 }
-var handlers = {
-  async dora_query(args) {
-    try {
-      const a = QuerySchema.parse(args);
-      const cfg = loadConfig();
+function createHandlers(ctx = defaultPlatformContext) {
+  return {
+    async dora_query(args) {
       try {
-        const r = await queryEngine(a.query, {
-          url: cfg.skill_query_url,
-          timeoutMs: cfg.query_timeout_seconds * 1e3
-        });
-        return JSON.stringify({ ...r, source: "remote" });
-      } catch (e) {
-        if (shouldFallback(e)) {
-          const remote = e;
-          console.error(`[dora] remote engine ${remote.code}, falling back to local`);
-          try {
-            const r = await localQuery(a.query, cfg.top_k);
-            return JSON.stringify(r);
-          } catch (fe) {
-            if (isDoraError(fe)) {
-              return JSON.stringify({
-                error: remote.code,
-                message: `${remote.message}; local fallback also failed: ${fe.message}`,
-                detail: { remote_code: remote.code, local_code: fe.code }
-              });
+        const a = QuerySchema.parse(args);
+        const cfg = loadConfig();
+        try {
+          const r = await queryEngine(a.query, {
+            url: cfg.skill_query_url,
+            timeoutMs: cfg.query_timeout_seconds * 1e3
+          });
+          return JSON.stringify({ ...r, source: "remote" });
+        } catch (e) {
+          if (shouldFallback(e)) {
+            const remote = e;
+            console.error(`[dora] remote engine ${remote.code}, falling back to local`);
+            try {
+              const r = await localQuery(a.query, cfg.top_k);
+              return JSON.stringify(r);
+            } catch (fe) {
+              if (isDoraError(fe)) {
+                return JSON.stringify({
+                  error: remote.code,
+                  message: `${remote.message}; local fallback also failed: ${fe.message}`,
+                  detail: { remote_code: remote.code, local_code: fe.code }
+                });
+              }
+              return err(fe);
             }
-            return err(fe);
           }
+          return err(e);
         }
+      } catch (e) {
         return err(e);
       }
-    } catch (e) {
-      return err(e);
-    }
-  },
-  async dora_load(args) {
-    try {
-      const a = LoadSchema.parse(args);
-      const r = await loadSkill({ name: a.name, repoUrl: a.repo_url, securityLevel: a.security_level });
-      return JSON.stringify(r);
-    } catch (e) {
-      return err(e);
-    }
-  },
-  async dora_touch(args) {
-    try {
-      const a = TouchSchema.parse(args);
-      touch(a.key);
-      return JSON.stringify({ ok: true });
-    } catch (e) {
-      return err(e);
-    }
-  },
-  async dora_list(_args) {
-    const rows = listSkills();
-    if (rows.length === 0) return "no skills cached.";
-    const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
-    const body = rows.map((r) => `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
-    return `${header}
+    },
+    async dora_load(args) {
+      try {
+        const a = LoadSchema.parse(args);
+        const r = await loadSkill({ name: a.name, repoUrl: a.repo_url, securityLevel: a.security_level });
+        const detection = ctx.getDetection();
+        const executionContext = generateExecutionContext(detection);
+        return JSON.stringify({
+          ...r,
+          execution_context: executionContext,
+          detected_platform: detection.platform,
+          detection_source: detection.source
+        });
+      } catch (e) {
+        return err(e);
+      }
+    },
+    async dora_touch(args) {
+      try {
+        const a = TouchSchema.parse(args);
+        touch(a.key);
+        return JSON.stringify({ ok: true });
+      } catch (e) {
+        return err(e);
+      }
+    },
+    async dora_list(_args) {
+      const rows = listSkills();
+      if (rows.length === 0) return "no skills cached.";
+      const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
+      const body = rows.map((r) => `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
+      return `${header}
 ${body}`;
-  },
-  async dora_stats(_args) {
-    return buildStats();
-  },
-  async dora_doctor(_args) {
-    return await runDoctor();
-  },
-  async dora_upgrade(_args) {
-    return JSON.stringify({ shell: buildUpgradeCommand() });
-  },
-  async dora_purge(args) {
-    try {
-      const a = PurgeSchema.parse(args);
-      if (!a.confirm) return JSON.stringify({ error: ERR.CONFIRMATION_REQUIRED, message: "pass confirm: true" });
-      return JSON.stringify(purgeAll());
-    } catch (e) {
-      return err(e);
+    },
+    async dora_stats(_args) {
+      return buildStats();
+    },
+    async dora_doctor(_args) {
+      return await runDoctor();
+    },
+    async dora_upgrade(_args) {
+      return JSON.stringify({ shell: buildUpgradeCommand() });
+    },
+    async dora_purge(args) {
+      try {
+        const a = PurgeSchema.parse(args);
+        if (!a.confirm) return JSON.stringify({ error: ERR.CONFIRMATION_REQUIRED, message: "pass confirm: true" });
+        return JSON.stringify(purgeAll());
+      } catch (e) {
+        return err(e);
+      }
     }
-  }
-};
+  };
+}
+var handlers = createHandlers();
 var toolDefs = [
   { name: "dora_query", description: "Query skill engine for candidates by natural-language task.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "dora_load", description: "Clone a skill repo and locate its SKILL.md.", inputSchema: { type: "object", properties: { name: { type: "string" }, repo_url: { type: "string" }, security_level: { type: "string", enum: ["safe", "warn", "danger", "unknown"] } }, required: ["name", "repo_url", "security_level"] } },
@@ -13165,17 +14401,21 @@ var toolDefs = [
 ];
 
 // src/mcp/server.ts
+init_detect();
 async function startMcpServer() {
   const server = new Server(
     { name: "dora", version: "0.1.0" },
     { capabilities: { tools: {} } }
   );
+  const handlers2 = createHandlers({
+    getDetection: () => detectRuntimePlatform(void 0, process.env)
+  });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: toolDefs
   }));
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const name = req.params.name;
-    const fn = handlers[name];
+    const fn = handlers2[name];
     if (!fn) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "unknown_tool", name }) }], isError: true };
     }
@@ -13242,6 +14482,32 @@ async function main() {
       process.stdout.write(out + "\n");
       return JSON.parse(out).error ? 1 : 0;
     }
+    case "install": {
+      const { runInstall: runInstall2 } = await Promise.resolve().then(() => (init_install(), install_exports));
+      const { detectInstallTarget: detectInstallTarget2, INSTALL_TARGETS: INSTALL_TARGETS2 } = await Promise.resolve().then(() => (init_detect(), detect_exports));
+      const platformArg = argv.slice(1).filter((a) => !a.startsWith("-"));
+      const result = detectInstallTarget2(platformArg, process.env);
+      if (!result.ok) {
+        switch (result.reason) {
+          case "unsupported-install-target":
+            process.stderr.write(`${result.hint}
+`);
+            return 64;
+          case "invalid-platform":
+            process.stderr.write(`unknown platform: "${result.value}"
+supported: ${INSTALL_TARGETS2.join(", ")}
+`);
+            return 64;
+          case "no-signal":
+            process.stderr.write(`no platform specified.
+usage: dora install <platform>
+supported: ${INSTALL_TARGETS2.join(", ")}
+`);
+            return 64;
+        }
+      }
+      return runInstall2(result.target, argv.slice(2));
+    }
     case "install:codex":
     case "install:cursor":
     case "install:opencode": {
@@ -13279,6 +14545,7 @@ var USAGE = `dora <subcommand>
   upgrade                         Upgrade dora
   purge --yes                     Wipe all cached skills
   mcp                             Start MCP stdio server
+  install [platform]              Write platform config (auto-detect if omitted)
   install:<platform>              Write platform config
   hook <platform> <event>         Run platform hook
 `;
@@ -13289,3 +14556,266 @@ main().then((code) => process.exit(code)).catch((e) => {
 `);
   process.exit(1);
 });
+/*! Bundled license information:
+
+smol-toml/dist/error.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/util.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/date.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/primitive.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/extract.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/struct.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/parse.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/stringify.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+
+smol-toml/dist/index.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   *)
+*/

@@ -12816,7 +12816,170 @@ async function runDoctor() {
   return renderChecklist(await runChecks());
 }
 
+// src/platforms/detect.ts
+var VALID_PLATFORMS = /* @__PURE__ */ new Set([
+  "claude-code",
+  "codex",
+  "openclaw",
+  "opencode",
+  "gemini-cli",
+  "qwen-code",
+  "cursor"
+]);
+var CLIENT_NAME_MAP = {
+  "claude-code": "claude-code",
+  codex: "codex",
+  "codex-mcp-client": "codex",
+  "gemini-cli-mcp-client": "gemini-cli",
+  "qwen-code": "qwen-code"
+};
+var ENV_SIGNAL_MAP = [
+  { env: "CLAUDE_PROJECT_DIR", platform: "claude-code" },
+  { env: "CLAUDE_SESSION_ID", platform: "claude-code" },
+  { env: "CODEX_THREAD_ID", platform: "codex" },
+  { env: "CODEX_CI", platform: "codex" },
+  { env: "OPENCODE", platform: "opencode" },
+  { env: "OPENCODE_PID", platform: "opencode" },
+  { env: "GEMINI_PROJECT_DIR", platform: "gemini-cli" },
+  { env: "GEMINI_CLI", platform: "gemini-cli" },
+  { env: "QWEN_PROJECT_DIR", platform: "qwen-code" }
+];
+function detectRuntimePlatform(clientInfo, env) {
+  const override = env["DORA_PLATFORM"];
+  if (override) {
+    if (VALID_PLATFORMS.has(override)) {
+      return { platform: override, source: "env-override" };
+    }
+    return {
+      platform: "unknown",
+      source: "env-override",
+      warning: `invalid DORA_PLATFORM value: "${override}"`
+    };
+  }
+  if (clientInfo?.name) {
+    const lower = clientInfo.name.toLowerCase();
+    const direct = CLIENT_NAME_MAP[lower];
+    if (direct) return { platform: direct, source: "clientInfo" };
+    if (lower.startsWith("qwen-cli-mcp-client")) {
+      return { platform: "qwen-code", source: "clientInfo" };
+    }
+  }
+  for (const { env: key, platform } of ENV_SIGNAL_MAP) {
+    if (env[key]) return { platform, source: "env-signal" };
+  }
+  return { platform: "unknown", source: "fallback" };
+}
+var INSTALL_TARGETS = [
+  "codex",
+  "cursor",
+  "opencode",
+  "openclaw",
+  "gemini-cli",
+  "qwen-code"
+];
+var INSTALL_SET = new Set(INSTALL_TARGETS);
+
+// src/platforms/tool-mapping.ts
+var TOOL_MAPPINGS = {
+  "claude-code": { kind: "native" },
+  cursor: { kind: "native" },
+  openclaw: { kind: "unverified" },
+  "qwen-code": { kind: "unverified" },
+  opencode: {
+    kind: "mapping",
+    tools: {
+      Read: "read",
+      Write: "write",
+      Edit: "edit",
+      Bash: "shell",
+      Skill: "skill",
+      Task: "task",
+      WebFetch: "fetch",
+      WebSearch: "search",
+      TodoWrite: "todo"
+    }
+  },
+  "gemini-cli": {
+    kind: "mapping",
+    tools: {
+      Read: "read_file",
+      Write: "write_file",
+      Edit: "replace",
+      Bash: "run_shell_command",
+      Skill: "activate_skill",
+      WebSearch: "google_web_search",
+      WebFetch: "web_fetch",
+      Task: null
+    }
+  },
+  codex: {
+    kind: "mapping",
+    tools: {
+      Read: "native file tools",
+      Write: "native file tools",
+      Edit: "native file tools",
+      Bash: "native shell tools",
+      Skill: "native loading",
+      Task: "spawn_agent",
+      TodoWrite: "update_plan"
+    }
+  },
+  unknown: {
+    kind: "warning",
+    text: [
+      "## Platform Adaptation Warning",
+      "",
+      "Could not detect your CLI platform. This skill uses Claude Code tool names",
+      "(Read, Write, Edit, Bash, Skill, Task, etc.). If your CLI uses different",
+      "tool names, you may need to adapt the commands manually.",
+      "",
+      "To specify your platform explicitly, set: DORA_PLATFORM=<platform-id>",
+      "Supported overrides: claude-code, codex, openclaw, opencode, gemini-cli, qwen-code, cursor (manual fallback only)"
+    ].join("\n")
+  }
+};
+function generateExecutionContext(detection) {
+  const mapping = TOOL_MAPPINGS[detection.platform];
+  let context = null;
+  switch (mapping.kind) {
+    case "native":
+      context = null;
+      break;
+    case "mapping": {
+      const lines = ["## Tool Name Mapping", "", "This skill uses Claude Code tool names. On your platform, use:", ""];
+      for (const [from, to] of Object.entries(mapping.tools)) {
+        lines.push(to === null ? `- \`${from}\` \u2192 Not supported on this platform` : `- \`${from}\` \u2192 \`${to}\``);
+      }
+      lines.push("", "After reading the skill instructions, translate all tool references using this mapping.");
+      context = lines.join("\n");
+      break;
+    }
+    case "unverified":
+      context = [
+        "## Platform Compatibility Note",
+        "",
+        "This platform's tool names have not been verified against Claude Code conventions.",
+        "Tool names may be identical. If a tool call fails, adapt to your platform's native tool names."
+      ].join("\n");
+      break;
+    case "warning":
+      context = mapping.text;
+      break;
+  }
+  if (detection.warning && context) {
+    context = `> \u26A0\uFE0F ${detection.warning}
+
+${context}`;
+  } else if (detection.warning) {
+    context = `> \u26A0\uFE0F ${detection.warning}`;
+  }
+  return context;
+}
+
 // src/mcp/tools.ts
+var defaultPlatformContext = {
+  getDetection: () => detectRuntimePlatform(void 0, process.env)
+};
 var QuerySchema = z3.object({ query: z3.string().min(1) });
 var LoadSchema = z3.object({
   name: z3.string().min(1),
@@ -12838,86 +13001,96 @@ function shouldFallback(e) {
   }
   return false;
 }
-var handlers = {
-  async dora_query(args) {
-    try {
-      const a = QuerySchema.parse(args);
-      const cfg = loadConfig();
+function createHandlers(ctx = defaultPlatformContext) {
+  return {
+    async dora_query(args) {
       try {
-        const r = await queryEngine(a.query, {
-          url: cfg.skill_query_url,
-          timeoutMs: cfg.query_timeout_seconds * 1e3
-        });
-        return JSON.stringify({ ...r, source: "remote" });
-      } catch (e) {
-        if (shouldFallback(e)) {
-          const remote = e;
-          console.error(`[dora] remote engine ${remote.code}, falling back to local`);
-          try {
-            const r = await localQuery(a.query, cfg.top_k);
-            return JSON.stringify(r);
-          } catch (fe) {
-            if (isDoraError(fe)) {
-              return JSON.stringify({
-                error: remote.code,
-                message: `${remote.message}; local fallback also failed: ${fe.message}`,
-                detail: { remote_code: remote.code, local_code: fe.code }
-              });
+        const a = QuerySchema.parse(args);
+        const cfg = loadConfig();
+        try {
+          const r = await queryEngine(a.query, {
+            url: cfg.skill_query_url,
+            timeoutMs: cfg.query_timeout_seconds * 1e3
+          });
+          return JSON.stringify({ ...r, source: "remote" });
+        } catch (e) {
+          if (shouldFallback(e)) {
+            const remote = e;
+            console.error(`[dora] remote engine ${remote.code}, falling back to local`);
+            try {
+              const r = await localQuery(a.query, cfg.top_k);
+              return JSON.stringify(r);
+            } catch (fe) {
+              if (isDoraError(fe)) {
+                return JSON.stringify({
+                  error: remote.code,
+                  message: `${remote.message}; local fallback also failed: ${fe.message}`,
+                  detail: { remote_code: remote.code, local_code: fe.code }
+                });
+              }
+              return err(fe);
             }
-            return err(fe);
           }
+          return err(e);
         }
+      } catch (e) {
         return err(e);
       }
-    } catch (e) {
-      return err(e);
-    }
-  },
-  async dora_load(args) {
-    try {
-      const a = LoadSchema.parse(args);
-      const r = await loadSkill({ name: a.name, repoUrl: a.repo_url, securityLevel: a.security_level });
-      return JSON.stringify(r);
-    } catch (e) {
-      return err(e);
-    }
-  },
-  async dora_touch(args) {
-    try {
-      const a = TouchSchema.parse(args);
-      touch(a.key);
-      return JSON.stringify({ ok: true });
-    } catch (e) {
-      return err(e);
-    }
-  },
-  async dora_list(_args) {
-    const rows = listSkills();
-    if (rows.length === 0) return "no skills cached.";
-    const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
-    const body = rows.map((r) => `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
-    return `${header}
+    },
+    async dora_load(args) {
+      try {
+        const a = LoadSchema.parse(args);
+        const r = await loadSkill({ name: a.name, repoUrl: a.repo_url, securityLevel: a.security_level });
+        const detection = ctx.getDetection();
+        const executionContext = generateExecutionContext(detection);
+        return JSON.stringify({
+          ...r,
+          execution_context: executionContext,
+          detected_platform: detection.platform,
+          detection_source: detection.source
+        });
+      } catch (e) {
+        return err(e);
+      }
+    },
+    async dora_touch(args) {
+      try {
+        const a = TouchSchema.parse(args);
+        touch(a.key);
+        return JSON.stringify({ ok: true });
+      } catch (e) {
+        return err(e);
+      }
+    },
+    async dora_list(_args) {
+      const rows = listSkills();
+      if (rows.length === 0) return "no skills cached.";
+      const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
+      const body = rows.map((r) => `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
+      return `${header}
 ${body}`;
-  },
-  async dora_stats(_args) {
-    return buildStats();
-  },
-  async dora_doctor(_args) {
-    return await runDoctor();
-  },
-  async dora_upgrade(_args) {
-    return JSON.stringify({ shell: buildUpgradeCommand() });
-  },
-  async dora_purge(args) {
-    try {
-      const a = PurgeSchema.parse(args);
-      if (!a.confirm) return JSON.stringify({ error: ERR.CONFIRMATION_REQUIRED, message: "pass confirm: true" });
-      return JSON.stringify(purgeAll());
-    } catch (e) {
-      return err(e);
+    },
+    async dora_stats(_args) {
+      return buildStats();
+    },
+    async dora_doctor(_args) {
+      return await runDoctor();
+    },
+    async dora_upgrade(_args) {
+      return JSON.stringify({ shell: buildUpgradeCommand() });
+    },
+    async dora_purge(args) {
+      try {
+        const a = PurgeSchema.parse(args);
+        if (!a.confirm) return JSON.stringify({ error: ERR.CONFIRMATION_REQUIRED, message: "pass confirm: true" });
+        return JSON.stringify(purgeAll());
+      } catch (e) {
+        return err(e);
+      }
     }
-  }
-};
+  };
+}
+var handlers = createHandlers();
 var toolDefs = [
   { name: "dora_query", description: "Query skill engine for candidates by natural-language task.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "dora_load", description: "Clone a skill repo and locate its SKILL.md.", inputSchema: { type: "object", properties: { name: { type: "string" }, repo_url: { type: "string" }, security_level: { type: "string", enum: ["safe", "warn", "danger", "unknown"] } }, required: ["name", "repo_url", "security_level"] } },
@@ -12935,12 +13108,15 @@ async function startMcpServer() {
     { name: "dora", version: "0.1.0" },
     { capabilities: { tools: {} } }
   );
+  const handlers2 = createHandlers({
+    getDetection: () => detectRuntimePlatform(void 0, process.env)
+  });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: toolDefs
   }));
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const name = req.params.name;
-    const fn = handlers[name];
+    const fn = handlers2[name];
     if (!fn) {
       return { content: [{ type: "text", text: JSON.stringify({ error: "unknown_tool", name }) }], isError: true };
     }
