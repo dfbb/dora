@@ -45,6 +45,26 @@ async function main(): Promise<number> {
       process.stdout.write(out + "\n");
       return JSON.parse(out).error ? 1 : 0;
     }
+    case "install": {
+      const { runInstall } = await import("./commands/install");
+      const { detectInstallTarget, INSTALL_TARGETS } = await import("@/platforms/detect");
+      const platformArg = argv.slice(1).filter((a) => !a.startsWith("-"));
+      const result = detectInstallTarget(platformArg, process.env);
+      if (!result.ok) {
+        switch (result.reason) {
+          case "unsupported-install-target":
+            process.stderr.write(`${result.hint}\n`);
+            return 64;
+          case "invalid-platform":
+            process.stderr.write(`unknown platform: "${result.value}"\nsupported: ${INSTALL_TARGETS.join(", ")}\n`);
+            return 64;
+          case "no-signal":
+            process.stderr.write(`no platform specified.\nusage: dora install <platform>\nsupported: ${INSTALL_TARGETS.join(", ")}\n`);
+            return 64;
+        }
+      }
+      return runInstall(result.target, argv.slice(2));
+    }
     case "install:codex":
     case "install:cursor":
     case "install:opencode": {
@@ -80,6 +100,7 @@ const USAGE = `dora <subcommand>
   upgrade                         Upgrade dora
   purge --yes                     Wipe all cached skills
   mcp                             Start MCP stdio server
+  install [platform]              Write platform config (auto-detect if omitted)
   install:<platform>              Write platform config
   hook <platform> <event>         Run platform hook
 `;
