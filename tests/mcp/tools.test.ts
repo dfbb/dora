@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
-import { handlers } from "@/mcp/tools";
+import { handlers, createHandlers } from "@/mcp/tools";
 import { writeStatus } from "@/core/status";
 import { ERR } from "@/core/errors";
 
@@ -57,5 +57,78 @@ describe("MCP tool handlers", () => {
     });
     const r = await handlers.dora_list({});
     expect(r).toContain("foo_alice");
+  });
+});
+
+describe("createHandlers with platform context", () => {
+  it("dora_load returns execution_context and detected_platform for codex", async () => {
+    const h = createHandlers({
+      getDetection: () => ({ platform: "codex" as const, source: "env-override" as const }),
+    });
+
+    const skillDir = join(work, "skills", "testskill_local");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "# test");
+    writeStatus({
+      version: 1,
+      skills: {
+        testskill_local: {
+          skill_name: "testskill", owner: "local",
+          repo_url: "file:///tmp/test",
+          github_hash: "abc", primary_skill_path: "SKILL.md",
+          security_level: "safe",
+          downloaded_at: new Date().toISOString(),
+          last_used_at: new Date().toISOString(),
+          use_count: 0,
+        },
+      },
+    });
+
+    const out = JSON.parse(
+      await h.dora_load({
+        name: "testskill",
+        repo_url: "file:///tmp/test",
+        security_level: "safe",
+      }),
+    );
+    expect(out.detected_platform).toBe("codex");
+    expect(out.detection_source).toBe("env-override");
+    expect(out.execution_context).toContain("native file tools");
+    expect(typeof out.execution_context).toBe("string");
+  });
+
+  it("dora_load returns null execution_context for claude-code", async () => {
+    const h = createHandlers({
+      getDetection: () => ({ platform: "claude-code" as const, source: "env-signal" as const }),
+    });
+
+    const skillDir = join(work, "skills", "testskill_local");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "# test");
+    writeStatus({
+      version: 1,
+      skills: {
+        testskill_local: {
+          skill_name: "testskill", owner: "local",
+          repo_url: "file:///tmp/test",
+          github_hash: "abc", primary_skill_path: "SKILL.md",
+          security_level: "safe",
+          downloaded_at: new Date().toISOString(),
+          last_used_at: new Date().toISOString(),
+          use_count: 0,
+        },
+      },
+    });
+
+    const out = JSON.parse(
+      await h.dora_load({
+        name: "testskill",
+        repo_url: "file:///tmp/test",
+        security_level: "safe",
+      }),
+    );
+    expect(out.detected_platform).toBe("claude-code");
+    expect(out.detection_source).toBe("env-signal");
+    expect(out.execution_context).toBeNull();
   });
 });

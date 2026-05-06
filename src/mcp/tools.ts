@@ -9,6 +9,17 @@ import { buildStats } from "@/stats";
 import { buildUpgradeCommand } from "@/upgrade";
 import { runDoctor } from "@/diagnostics/run";
 import type { SecurityLevel } from "@/core/types";
+import { detectRuntimePlatform } from "@/platforms/detect";
+import type { DetectionResult } from "@/platforms/detect";
+import { generateExecutionContext } from "@/platforms/tool-mapping";
+
+export interface PlatformContext {
+  getDetection: () => DetectionResult;
+}
+
+const defaultPlatformContext: PlatformContext = {
+  getDetection: () => detectRuntimePlatform(undefined, process.env),
+};
 
 const QuerySchema = z.object({ query: z.string().min(1) });
 const LoadSchema = z.object({
@@ -34,77 +45,89 @@ function shouldFallback(e: unknown): boolean {
   return false;
 }
 
-export const handlers = {
-  async dora_query(args: unknown): Promise<string> {
-    try {
-      const a = QuerySchema.parse(args);
-      const cfg = loadConfig();
+export function createHandlers(ctx: PlatformContext = defaultPlatformContext) {
+  return {
+    async dora_query(args: unknown): Promise<string> {
       try {
-        const r = await queryEngine(a.query, {
-          url: cfg.skill_query_url,
-          timeoutMs: cfg.query_timeout_seconds * 1000,
-        });
-        return JSON.stringify({ ...r, source: "remote" });
-      } catch (e) {
-        if (shouldFallback(e)) {
-          const remote = e as DoraError;
-          console.error(`[dora] remote engine ${remote.code}, falling back to local`);
-          try {
-            const r = await localQuery(a.query, cfg.top_k);
-            return JSON.stringify(r);
-          } catch (fe) {
-            if (isDoraError(fe)) {
-              return JSON.stringify({
-                error: remote.code,
-                message: `${remote.message}; local fallback also failed: ${fe.message}`,
-                detail: { remote_code: remote.code, local_code: fe.code },
-              });
+        const a = QuerySchema.parse(args);
+        const cfg = loadConfig();
+        try {
+          const r = await queryEngine(a.query, {
+            url: cfg.skill_query_url,
+            timeoutMs: cfg.query_timeout_seconds * 1000,
+          });
+          return JSON.stringify({ ...r, source: "remote" });
+        } catch (e) {
+          if (shouldFallback(e)) {
+            const remote = e as DoraError;
+            console.error(`[dora] remote engine ${remote.code}, falling back to local`);
+            try {
+              const r = await localQuery(a.query, cfg.top_k);
+              return JSON.stringify(r);
+            } catch (fe) {
+              if (isDoraError(fe)) {
+                return JSON.stringify({
+                  error: remote.code,
+                  message: `${remote.message}; local fallback also failed: ${fe.message}`,
+                  detail: { remote_code: remote.code, local_code: fe.code },
+                });
+              }
+              return err(fe);
             }
-            return err(fe);
           }
+          return err(e);
         }
-        return err(e);
-      }
-    } catch (e) { return err(e); }
-  },
+      } catch (e) { return err(e); }
+    },
 
-  async dora_load(args: unknown): Promise<string> {
-    try {
-      const a = LoadSchema.parse(args);
-      const r = await loadSkill({ name: a.name, repoUrl: a.repo_url, securityLevel: a.security_level as SecurityLevel });
-      return JSON.stringify(r);
-    } catch (e) { return err(e); }
-  },
+    async dora_load(args: unknown): Promise<string> {
+      try {
+        const a = LoadSchema.parse(args);
+        const r = await loadSkill({ name: a.name, repoUrl: a.repo_url, securityLevel: a.security_level as SecurityLevel });
+        const detection = ctx.getDetection();
+        const executionContext = generateExecutionContext(detection);
+        return JSON.stringify({
+          ...r,
+          execution_context: executionContext,
+          detected_platform: detection.platform,
+          detection_source: detection.source,
+        });
+      } catch (e) { return err(e); }
+    },
 
-  async dora_touch(args: unknown): Promise<string> {
-    try {
-      const a = TouchSchema.parse(args);
-      touch(a.key);
-      return JSON.stringify({ ok: true });
-    } catch (e) { return err(e); }
-  },
+    async dora_touch(args: unknown): Promise<string> {
+      try {
+        const a = TouchSchema.parse(args);
+        touch(a.key);
+        return JSON.stringify({ ok: true });
+      } catch (e) { return err(e); }
+    },
 
-  async dora_list(_args: unknown): Promise<string> {
-    const rows = listSkills();
-    if (rows.length === 0) return "no skills cached.";
-    const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
-    const body = rows.map((r) =>
-      `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
-    return `${header}\n${body}`;
-  },
+    async dora_list(_args: unknown): Promise<string> {
+      const rows = listSkills();
+      if (rows.length === 0) return "no skills cached.";
+      const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
+      const body = rows.map((r) =>
+        `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
+      return `${header}\n${body}`;
+    },
 
-  async dora_stats(_args: unknown): Promise<string> { return buildStats(); },
-  async dora_doctor(_args: unknown): Promise<string> { return await runDoctor(); },
-  async dora_upgrade(_args: unknown): Promise<string> { return JSON.stringify({ shell: buildUpgradeCommand() }); },
+    async dora_stats(_args: unknown): Promise<string> { return buildStats(); },
+    async dora_doctor(_args: unknown): Promise<string> { return await runDoctor(); },
+    async dora_upgrade(_args: unknown): Promise<string> { return JSON.stringify({ shell: buildUpgradeCommand() }); },
 
-  async dora_purge(args: unknown): Promise<string> {
-    try {
-      const a = PurgeSchema.parse(args);
-      if (!a.confirm) return JSON.stringify({ error: ERR.CONFIRMATION_REQUIRED, message: "pass confirm: true" });
-      return JSON.stringify(purgeAll());
-    } catch (e) { return err(e); }
-  },
-};
+    async dora_purge(args: unknown): Promise<string> {
+      try {
+        const a = PurgeSchema.parse(args);
+        if (!a.confirm) return JSON.stringify({ error: ERR.CONFIRMATION_REQUIRED, message: "pass confirm: true" });
+        return JSON.stringify(purgeAll());
+      } catch (e) { return err(e); }
+    },
+  };
+}
+
+// Backward-compatible export
+export const handlers = createHandlers();
 
 export const toolDefs = [
   { name: "dora_query", description: "Query skill engine for candidates by natural-language task.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
