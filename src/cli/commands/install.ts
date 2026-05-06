@@ -5,9 +5,17 @@ import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { codex } from "@/platforms/codex";
 import { cursor } from "@/platforms/cursor";
 import { opencode } from "@/platforms/opencode";
+import { geminiCli } from "@/platforms/gemini-cli";
+import { openClaw } from "@/platforms/openclaw";
+import { qwenCode } from "@/platforms/qwen-code";
 import type { PlatformAdapter } from "@/platforms/types";
 
-const ADAPTERS: Record<string, PlatformAdapter> = { codex, cursor, opencode };
+const ADAPTERS: Record<string, PlatformAdapter> = {
+  codex, cursor, opencode,
+  "gemini-cli": geminiCli,
+  openclaw: openClaw,
+  "qwen-code": qwenCode,
+};
 
 function expandTilde(p: string): string {
   return p.startsWith("~/") ? join(homedir(), p.slice(2)) : p;
