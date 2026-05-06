@@ -32,9 +32,10 @@ type PlatformId =
 
 ### 检测优先级
 
-1. **MCP clientInfo.name**（最高优先级）— MCP 初始化握手时客户端上报
-2. **环境变量** — 各 CLI 运行时自动设置
-3. **Fallback** — 默认 `claude-code`
+1. **手动覆盖** `DORA_PLATFORM` 环境变量（最高优先级）— 用户显式指定平台
+2. **MCP clientInfo.name** — MCP 初始化握手时客户端上报
+3. **环境变量** — 各 CLI 运行时自动设置
+4. **Fallback** — 返回 `unknown`（不 fallback 到 claude-code）
 
 ### 检测信号表
 
@@ -66,9 +67,20 @@ interface ToolMapping {
 }
 
 const TOOL_MAPPINGS: Record<PlatformId, ToolMapping | null> = {
-  "claude-code": null,
-  "openclaw":    null,
-  "qwen-code":   null,
+  "claude-code": null,  // 原生平台，无需映射
+
+  // OpenClaw: Claude Code 分支，共享 ClaudeCodeBaseAdapter 线协议，
+  // 工具名完全一致（Read/Write/Edit/Bash）。
+  // 依据：openclaw adapter 的 parsePreToolUseInput 使用 toolName/tool_name
+  // 映射到与 Claude Code 相同的标准化字段。
+  "openclaw": null,
+
+  // Qwen Code: 继承 ClaudeCodeBaseAdapter，使用相同 JSON stdin/stdout 协议，
+  // 工具名与 Claude Code 一致。
+  // 依据：qwen-code adapter 的 constructor 调用 super([".qwen"])，
+  // parse/format 方法全部继承自 claude-code-base.ts。
+  "qwen-code": null,
+
   "opencode": {
     Read: "read", Write: "write", Edit: "edit",
     Bash: "shell", Skill: "skill", Task: "task",
@@ -87,11 +99,11 @@ const TOOL_MAPPINGS: Record<PlatformId, ToolMapping | null> = {
     Skill: "native loading", Task: "spawn_agent",
     TodoWrite: "update_plan",
   },
-  "unknown": null,
+  "unknown": null,  // 注入通用警告而非映射表（见 unknown 平台处理）
 };
 ```
 
-`null` 顶层值 = 与 Claude Code 兼容，不注入。
+`null` 顶层值 = 与 Claude Code 工具名兼容（已验证），不注入映射表。
 `null` 字段值 = 目标平台不支持该工具。
 
 ### 注入时机
@@ -103,7 +115,8 @@ interface DoraLoadResponse {
   key: string;
   skill_md_path: string;
   cache_hit: boolean;
-  tool_mapping: string | null;  // 新增
+  tool_mapping: string | null;    // 新增：映射表文本或通用警告
+  detected_platform: PlatformId;  // 新增：当前检测到的平台，方便调试
 }
 ```
 
@@ -159,19 +172,57 @@ npx skills install dora
 | Gemini CLI | `~/.gemini/settings.json` → `mcpServers` | JSON |
 | Qwen Code | `~/.qwen/settings.json` → `mcpServers` | JSON |
 
-### MCP server 注册内容
+### 各平台注册模板
 
-所有平台注册相同的 stdio MCP server，只是写入路径和格式不同：
+每个平台使用其原生配置格式，不共用统一模板：
 
+**Claude Code / Gemini CLI / Qwen Code**（JSON `mcpServers`）：
 ```json
 {
-  "dora": {
-    "command": "npx",
-    "args": ["-y", "dora-skill-server"],
-    "type": "stdio"
+  "mcpServers": {
+    "dora": {
+      "command": "npx",
+      "args": ["-y", "dora-skill-server"],
+      "type": "stdio"
+    }
   }
 }
 ```
+
+**Codex**（TOML `[mcp_servers.dora]`）：
+```toml
+[mcp_servers.dora]
+command = "npx"
+args = ["-y", "dora-skill-server"]
+```
+
+**OpenCode**（JSON，`type: "local"` + command 数组）：
+```json
+{
+  "mcp": {
+    "dora": {
+      "type": "local",
+      "command": ["npx", "-y", "dora-skill-server"]
+    }
+  }
+}
+```
+
+**OpenClaw**（JSON `plugins.entries`）：
+```json
+{
+  "plugins": {
+    "entries": {
+      "dora": {
+        "command": "npx",
+        "args": ["-y", "dora-skill-server"]
+      }
+    }
+  }
+}
+```
+
+安装脚本根据检测到的平台选择对应模板，**merge 写入**（不覆盖已有配置）。
 
 ## 文件结构
 
@@ -196,19 +247,41 @@ src/
 - SKILL.md 内容本身 — 不做文本替换
 - `~/.dora/` 缓存结构 — 不变
 
+## unknown 平台处理
+
+当 `detectPlatform()` 返回 `unknown` 时：
+
+1. `dora_load` 的 `tool_mapping` 字段返回通用警告文本（非映射表）：
+
+```markdown
+## Platform Adaptation Warning
+
+Could not detect your CLI platform. This skill uses Claude Code tool names
+(Read, Write, Edit, Bash, Skill, Task, etc.). If your CLI uses different
+tool names, you may need to adapt the commands manually.
+
+To specify your platform explicitly, set: DORA_PLATFORM=<platform-id>
+Supported: claude-code, codex, openclaw, opencode, gemini-cli, qwen-code
+```
+
+2. `detected_platform` 字段返回 `"unknown"`，AI 和用户均可看到
+3. Skill 仍然正常加载，不阻断流程
+
 ## 边界情况
 
 | 场景 | 处理 |
 |------|------|
-| 检测不到平台（unknown） | 不注入映射，行为同 Claude Code |
-| 平台支持但映射表为 null | 不注入（openclaw/qwen-code） |
+| 检测不到平台（unknown） | 注入通用警告（见上），不 fallback 到 claude-code |
+| 平台支持但映射表为 null | 不注入（openclaw/qwen-code，兼容性已验证） |
 | Gemini CLI 上 skill 用了 Task | 映射表标注 `Task → Not supported`，AI 自行降级 |
 | 新平台上线 | 加一条 env var 检测 + 映射表条目 |
 | Qwen Code clientInfo 模式匹配 | `qwen-cli-mcp-client-*` 前缀匹配 |
 | OpenCode 工具名大小写 | 当前基于源码分析为小写，上线前需实机验证 |
+| 用户手动覆盖 `DORA_PLATFORM` | 最高优先级，跳过所有自动检测 |
 
 ## 待验证项
 
 - OpenCode `tool.id` 的实际值（源码中 `Tool.init()` 的 id 字段，当前推断为小写）
 - OpenClaw 的 MCP clientInfo.name（当前无标准值，依赖 config dir 检测）
-- Codex `config.toml` 的 MCP 注册格式是否支持 stdio type
+- 各平台 MCP 注册模板的实际 merge 行为（安装前需读取现有配置，合并写入，不丢失已有 MCP server）
+- OpenCode `type: "local"` 注册格式的 command 字段是数组还是字符串
