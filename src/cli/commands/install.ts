@@ -60,7 +60,7 @@ export function runInstall(platform: string, argv: string[]): number {
       if (existing.includes(marker)) {
         process.stdout.write(`skip (present): ${target}\n`); continue;
       }
-      const appended = existing.endsWith("\n") ? existing + f.content : existing + "\n" + f.content;
+      const appended = existing.trimEnd() + "\n\n" + f.content + "\n";
       if (f.backup) copyFileSync(target, target + ".bak");
       writeSafe(target, appended, f.atomic ?? false);
       process.stdout.write(`appended: ${target}\n`); continue;
@@ -68,7 +68,13 @@ export function runInstall(platform: string, argv: string[]): number {
 
     if (f.mode === "json-merge" && existsSync(target)) {
       if (f.backup) copyFileSync(target, target + ".bak");
-      const existing = JSON.parse(readFileSync(target, "utf8"));
+      let existing: unknown;
+      try {
+        existing = JSON.parse(readFileSync(target, "utf8"));
+      } catch {
+        process.stderr.write(`error: ${target} has invalid JSON, not overwriting\n`);
+        return 1;
+      }
       const incoming = JSON.parse(f.content);
       writeSafe(target, JSON.stringify(deepMerge(existing, incoming), null, 2) + "\n", f.atomic ?? false);
       process.stdout.write(`wrote: ${target}\n`); continue;
@@ -76,9 +82,14 @@ export function runInstall(platform: string, argv: string[]): number {
 
     if (f.mode === "toml-merge" && existsSync(target)) {
       if (f.backup) copyFileSync(target, target + ".bak");
-      const existing = parseToml(readFileSync(target, "utf8"));
-      const incoming = parseToml(f.content);
-      writeSafe(target, stringifyToml(deepMerge(existing, incoming) as Parameters<typeof stringifyToml>[0]), f.atomic ?? false);
+      try {
+        const existing = parseToml(readFileSync(target, "utf8"));
+        const incoming = parseToml(f.content);
+        writeSafe(target, stringifyToml(deepMerge(existing, incoming) as Parameters<typeof stringifyToml>[0]), f.atomic ?? false);
+      } catch (e) {
+        process.stderr.write(`error: ${target} has invalid TOML or merge failed: ${(e as Error).message}\n`);
+        return 1;
+      }
       process.stdout.write(`wrote: ${target}\n`); continue;
     }
 
