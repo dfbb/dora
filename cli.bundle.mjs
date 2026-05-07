@@ -14278,7 +14278,7 @@ ${context}`;
 var defaultPlatformContext = {
   getDetection: () => detectRuntimePlatform(void 0, process.env)
 };
-var QuerySchema = z3.object({ query: z3.string().min(1) });
+var QuerySchema = z3.object({ query: z3.string().min(1), local_only: z3.boolean().optional() });
 var LoadSchema = z3.object({
   name: z3.string().min(1),
   repo_url: z3.string().min(1),
@@ -14305,6 +14305,10 @@ function createHandlers(ctx = defaultPlatformContext) {
       try {
         const a = QuerySchema.parse(args);
         const cfg = loadConfig();
+        if (a.local_only) {
+          const r = await localQuery(a.query, cfg.top_k);
+          return JSON.stringify(r);
+        }
         try {
           const r = await queryEngine(a.query, {
             url: cfg.skill_query_url,
@@ -14390,7 +14394,7 @@ ${body}`;
 }
 var handlers = createHandlers();
 var toolDefs = [
-  { name: "dora_query", description: "Query skill engine for candidates by natural-language task.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
+  { name: "dora_query", description: "Query skill engine for candidates by natural-language task.", inputSchema: { type: "object", properties: { query: { type: "string" }, local_only: { type: "boolean", description: "If true, skip remote engine and search local index only." } }, required: ["query"] } },
   { name: "dora_load", description: "Clone a skill repo and locate its SKILL.md.", inputSchema: { type: "object", properties: { name: { type: "string" }, repo_url: { type: "string" }, security_level: { type: "string", enum: ["safe", "warn", "danger", "unknown"] } }, required: ["name", "repo_url", "security_level"] } },
   { name: "dora_touch", description: "Mark a cached skill as used.", inputSchema: { type: "object", properties: { key: { type: "string" } }, required: ["key"] } },
   { name: "dora_list", description: "List all cached skills.", inputSchema: { type: "object", properties: {} } },
