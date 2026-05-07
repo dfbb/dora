@@ -7,7 +7,7 @@ const HOOKS_JSON = JSON.stringify({
   },
 }, null, 2);
 
-const CONFIG_TOML = `[mcp_servers.dora]\ncommand = "dora"\nargs = ["mcp"]\n`;
+const CONFIG_TOML = `[mcp_servers.dora]\ncommand = "dora"\nargs = ["mcp"]\n\n[mcp_servers.dora.env]\nDORA_PLATFORM = "codex"\n`;
 
 export const codex: PlatformAdapter = {
   name: "codex",

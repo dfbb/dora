@@ -1,7 +1,7 @@
 import type { PlatformAdapter } from "./types";
 import { ROUTING } from "./types";
 
-const MCP_JSON = JSON.stringify({ mcpServers: { dora: { command: "dora", args: ["mcp"] } } }, null, 2);
+const MCP_JSON = JSON.stringify({ mcpServers: { dora: { command: "dora", args: ["mcp"], env: { DORA_PLATFORM: "cursor" } } } }, null, 2);
 const MDC = `---\ndescription: dora skill discovery\nalwaysApply: true\n---\n\n${ROUTING}\n`;
 
 export const cursor: PlatformAdapter = {

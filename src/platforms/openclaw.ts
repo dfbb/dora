@@ -2,7 +2,7 @@ import type { PlatformAdapter } from "./types";
 import { ROUTING_WITH_CONTEXT } from "./types";
 
 const OPENCLAW_JSON = JSON.stringify({
-  plugins: { entries: { dora: { command: "dora", args: ["mcp"] } } },
+  plugins: { entries: { dora: { command: "dora", args: ["mcp"], env: { DORA_PLATFORM: "openclaw" } } } },
 }, null, 2);
 
 export const openClaw: PlatformAdapter = {

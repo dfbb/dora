@@ -3,7 +3,7 @@ import { ROUTING_WITH_CONTEXT } from "./types";
 
 const OPENCODE_JSON = JSON.stringify({
   $schema: "https://opencode.ai/config.json",
-  mcp: { dora: { type: "local", command: ["dora", "mcp"] } },
+  mcp: { dora: { type: "local", command: ["dora", "mcp"], env: { DORA_PLATFORM: "opencode" } } },
 }, null, 2);
 
 export const opencode: PlatformAdapter = {

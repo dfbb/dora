@@ -7880,6 +7880,9 @@ var init_codex = __esm({
     CONFIG_TOML = `[mcp_servers.dora]
 command = "dora"
 args = ["mcp"]
+
+[mcp_servers.dora.env]
+DORA_PLATFORM = "codex"
 `;
     codex = {
       name: "codex",
@@ -7901,7 +7904,7 @@ var init_cursor = __esm({
   "src/platforms/cursor.ts"() {
     "use strict";
     init_types();
-    MCP_JSON = JSON.stringify({ mcpServers: { dora: { command: "dora", args: ["mcp"] } } }, null, 2);
+    MCP_JSON = JSON.stringify({ mcpServers: { dora: { command: "dora", args: ["mcp"], env: { DORA_PLATFORM: "cursor" } } } }, null, 2);
     MDC = `---
 description: dora skill discovery
 alwaysApply: true
@@ -7930,7 +7933,7 @@ var init_opencode = __esm({
     init_types();
     OPENCODE_JSON = JSON.stringify({
       $schema: "https://opencode.ai/config.json",
-      mcp: { dora: { type: "local", command: ["dora", "mcp"] } }
+      mcp: { dora: { type: "local", command: ["dora", "mcp"], env: { DORA_PLATFORM: "opencode" } } }
     }, null, 2);
     opencode = {
       name: "opencode",
@@ -7952,7 +7955,7 @@ var init_gemini_cli = __esm({
     "use strict";
     init_types();
     SETTINGS_JSON = JSON.stringify({
-      mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio" } }
+      mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio", env: { DORA_PLATFORM: "gemini-cli" } } }
     }, null, 2);
     geminiCli = {
       name: "gemini-cli",
@@ -7974,7 +7977,7 @@ var init_openclaw = __esm({
     "use strict";
     init_types();
     OPENCLAW_JSON = JSON.stringify({
-      plugins: { entries: { dora: { command: "dora", args: ["mcp"] } } }
+      plugins: { entries: { dora: { command: "dora", args: ["mcp"], env: { DORA_PLATFORM: "openclaw" } } } }
     }, null, 2);
     openClaw = {
       name: "openclaw",
@@ -7995,7 +7998,7 @@ var init_qwen_code = __esm({
     "use strict";
     init_types();
     SETTINGS_JSON2 = JSON.stringify({
-      mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio" } }
+      mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio", env: { DORA_PLATFORM: "qwen-code" } } }
     }, null, 2);
     qwenCode = {
       name: "qwen-code",

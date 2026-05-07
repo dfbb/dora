@@ -2,7 +2,7 @@ import type { PlatformAdapter } from "./types";
 import { ROUTING_WITH_CONTEXT } from "./types";
 
 const SETTINGS_JSON = JSON.stringify({
-  mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio" } },
+  mcpServers: { dora: { command: "dora", args: ["mcp"], type: "stdio", env: { DORA_PLATFORM: "gemini-cli" } } },
 }, null, 2);
 
 export const geminiCli: PlatformAdapter = {
