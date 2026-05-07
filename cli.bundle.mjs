@@ -14437,6 +14437,8 @@ async function main() {
   switch (cmd) {
     case "mcp": {
       await startMcpServer();
+      await new Promise(() => {
+      });
       return 0;
     }
     case "query": {

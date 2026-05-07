@@ -9,6 +9,7 @@ async function main(): Promise<number> {
   switch (cmd) {
     case "mcp": {
       await startMcpServer();
+      await new Promise(() => {});
       return 0;
     }
     case "query": {
