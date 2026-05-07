@@ -21,7 +21,7 @@ const defaultPlatformContext: PlatformContext = {
   getDetection: () => detectRuntimePlatform(undefined, process.env),
 };
 
-const QuerySchema = z.object({ query: z.string().min(1) });
+const QuerySchema = z.object({ query: z.string().min(1), local_only: z.boolean().optional() });
 const LoadSchema = z.object({
   name: z.string().min(1),
   repo_url: z.string().min(1),
@@ -51,6 +51,10 @@ export function createHandlers(ctx: PlatformContext = defaultPlatformContext) {
       try {
         const a = QuerySchema.parse(args);
         const cfg = loadConfig();
+        if (a.local_only) {
+          const r = await localQuery(a.query, cfg.top_k);
+          return JSON.stringify(r);
+        }
         try {
           const r = await queryEngine(a.query, {
             url: cfg.skill_query_url,
@@ -130,7 +134,7 @@ export function createHandlers(ctx: PlatformContext = defaultPlatformContext) {
 export const handlers = createHandlers();
 
 export const toolDefs = [
-  { name: "dora_query", description: "Query skill engine for candidates by natural-language task.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
+  { name: "dora_query", description: "Query skill engine for candidates by natural-language task.", inputSchema: { type: "object", properties: { query: { type: "string" }, local_only: { type: "boolean", description: "If true, skip remote engine and search local index only." } }, required: ["query"] } },
   { name: "dora_load", description: "Clone a skill repo and locate its SKILL.md.", inputSchema: { type: "object", properties: { name: { type: "string" }, repo_url: { type: "string" }, security_level: { type: "string", enum: ["safe", "warn", "danger", "unknown"] } }, required: ["name", "repo_url", "security_level"] } },
   { name: "dora_touch", description: "Mark a cached skill as used.", inputSchema: { type: "object", properties: { key: { type: "string" } }, required: ["key"] } },
   { name: "dora_list", description: "List all cached skills.", inputSchema: { type: "object", properties: {} } },

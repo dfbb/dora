@@ -19,9 +19,13 @@ If `$ARGUMENTS` is empty: call MCP tool `dora_list` with `{}`, display the retur
 
 If `$ARGUMENTS` contains any non-ASCII characters, translate it to English yourself (do not call any API or tool — just translate inline as part of your reasoning). Use the translated English text as `QUERY` for all subsequent steps. Otherwise set `QUERY` = `$ARGUMENTS`.
 
+## Step 1.6 — Check for `local:` prefix
+
+If `QUERY` starts with `local:` (case-insensitive), strip the prefix and set `LOCAL_ONLY` = true. Otherwise set `LOCAL_ONLY` = false.
+
 ## Step 2 — Query
 
-Call MCP tool `dora_query` with `{query: "QUERY"}`.
+Call MCP tool `dora_query` with `{query: "QUERY", local_only: LOCAL_ONLY}`.
 
 - Response has `{error, message}` → relay message to user, then suggest `/dora:dora-doctor`. Stop.
 - Response has `{skills: [...]}` → continue.

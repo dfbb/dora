@@ -116,4 +116,13 @@ describe("dora_query fallback", () => {
     expect(r.detail.remote_code).toBe("engine_unreachable");
     expect(r.detail.local_code).toBe("local_index_broken");
   });
+
+  it("F: local_only=true skips remote, calls local directly", async () => {
+    localQueryMock.mockResolvedValue({ skills: [{ name: "local-only" }], source: "local" });
+    const { handlers } = await import("@/mcp/tools");
+    const r = JSON.parse(await handlers.dora_query({ query: "test", local_only: true }));
+    expect(r.source).toBe("local");
+    expect(r.skills[0].name).toBe("local-only");
+    expect(localQueryMock).toHaveBeenCalledOnce();
+  });
 });
