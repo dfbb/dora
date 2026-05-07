@@ -1,10 +1,10 @@
 {
-  "name": "dora",
+  "name": "@doraskill/dora",
   "version": "0.1.8",
   "description": "Dynamically query and load community skills for AI coding agents.",
   "type": "module",
   "bin": {
-    "dora": "./cli.bundle.mjs"
+    "dora": "bin/dora.js"
   },
   "scripts": {
     "build": "node esbuild.config.mjs",
@@ -16,6 +16,7 @@
   "files": [
     "cli.bundle.mjs",
     "start.bundle.mjs",
+    "bin/",
     "hooks/",
     "skills/",
     "configs/",

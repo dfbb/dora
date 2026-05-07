@@ -21,6 +21,7 @@ Restart Claude Code (or run `/reload-plugins`).
 | Slash Command | What it does |
 |---|---|
 | `/dora:dora <task>` | Query, pick, load, run a skill. No args → list cached. |
+| `/dora:dora local: <task>` | Same, but search local index only (skip remote engine). |
 | `/dora:dora-stats` | Usage stats. |
 | `/dora:dora-doctor` | Diagnostics. |
 | `/dora:dora-upgrade` | Upgrade dora itself. |
@@ -32,11 +33,11 @@ Restart Claude Code (or run `/reload-plugins`).
 <summary><strong>Codex CLI</strong></summary>
 
 ```bash
-npm install -g dora
-dora install:codex
+npm install -g @doraskill/dora
+dora install codex
 ```
 
-Adds MCP server to `~/.codex/config.toml` and SessionStart hook to `~/.codex/hooks.json`.
+Merges MCP server into `~/.codex/config.toml` (TOML deep merge, `.bak` backup), SessionStart hook into `~/.codex/hooks.json`, and appends routing to `~/.codex/AGENTS.md`.
 
 </details>
 
@@ -44,11 +45,11 @@ Adds MCP server to `~/.codex/config.toml` and SessionStart hook to `~/.codex/hoo
 <summary><strong>Cursor</strong></summary>
 
 ```bash
-npm install -g dora
-dora install:cursor
+npm install -g @doraskill/dora
+dora install cursor
 ```
 
-Writes `.cursor/mcp.json` (merged) and `.cursor/rules/dora.mdc`.
+Writes `.cursor/mcp.json` (deep merged) and `.cursor/rules/dora.mdc`.
 
 </details>
 
@@ -56,13 +57,59 @@ Writes `.cursor/mcp.json` (merged) and `.cursor/rules/dora.mdc`.
 <summary><strong>OpenCode</strong></summary>
 
 ```bash
-npm install -g dora
-dora install:opencode
+npm install -g @doraskill/dora
+dora install opencode
 ```
 
-Writes `opencode.json` (merged) and `AGENTS.md`.
+Writes `opencode.json` (deep merged) and appends routing to `AGENTS.md`.
 
 </details>
+
+<details>
+<summary><strong>Gemini CLI</strong></summary>
+
+```bash
+npm install -g @doraskill/dora
+dora install gemini-cli
+```
+
+Merges MCP server into `~/.gemini/settings.json` and appends routing to `GEMINI.md`.
+
+</details>
+
+<details>
+<summary><strong>OpenClaw</strong></summary>
+
+```bash
+npm install -g @doraskill/dora
+dora install openclaw
+```
+
+Merges MCP config into `openclaw.json`.
+
+</details>
+
+<details>
+<summary><strong>Qwen Code</strong></summary>
+
+```bash
+npm install -g @doraskill/dora
+dora install qwen-code
+```
+
+Merges MCP server into `settings.json`.
+
+</details>
+
+## Cross-Platform Adapter
+
+dora detects which CLI platform is running and adapts skill loading automatically.
+
+**Detection priority:** `DORA_PLATFORM` env override → MCP clientInfo → environment signals → fallback.
+
+When `dora_load` returns a non-null `execution_context`, the agent outputs it before running the skill — this includes tool name mappings (e.g. `Read` → `read_file` on Gemini CLI) or compatibility warnings for unverified platforms.
+
+Supported platforms: `claude-code`, `codex`, `cursor`, `opencode`, `gemini-cli`, `qwen-code`, `openclaw`.
 
 ## Configuration
 
@@ -88,7 +135,7 @@ dora doctor                    Diagnostics
 dora upgrade                   Upgrade dora
 dora purge --yes               Wipe all cached skills
 dora mcp                       Start MCP stdio server
-dora install:<platform>        Write platform config
+dora install [platform]        Auto-detect or specify target platform
 ```
 
 ## Data
@@ -103,6 +150,7 @@ dora install:<platform>        Write platform config
 `dora_query` automatically falls back to a local catalog when the remote engine is unreachable.
 
 - **Triggers:** `engine_unreachable` (network/timeout) or `http_error` with status ≥ 500 or status === 429. Other 4xx errors are returned to the caller as-is so configuration/auth issues are not hidden.
+- **Force local:** Pass `local_only: true` to `dora_query` (or use `/dora:dora local: <task>`) to skip the remote engine entirely.
 - **Catalog:** ~9,465 skills, bundled into the npm package (no extra download).
 - **Result shape:** identical to remote (`{skills: [...]}`) plus a `source: "remote" | "local"` field on the returned JSON.
 - **Diagnostics:** `dora_doctor` includes a `local index` check.
