@@ -9,7 +9,10 @@ async function main(): Promise<number> {
   switch (cmd) {
     case "mcp": {
       await startMcpServer();
-      await new Promise(() => {});
+      await new Promise<void>((resolve) => {
+        process.once("SIGTERM", resolve);
+        process.once("SIGINT", resolve);
+      });
       return 0;
     }
     case "query": {

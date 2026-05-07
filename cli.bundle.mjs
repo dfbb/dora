@@ -14310,7 +14310,7 @@ function createHandlers(ctx = defaultPlatformContext) {
         const cfg = loadConfig();
         if (a.local_only) {
           const r = await localQuery(a.query, cfg.top_k);
-          return JSON.stringify(r);
+          return JSON.stringify({ ...r, source: "local" });
         }
         try {
           const r = await queryEngine(a.query, {
@@ -14440,7 +14440,9 @@ async function main() {
   switch (cmd) {
     case "mcp": {
       await startMcpServer();
-      await new Promise(() => {
+      await new Promise((resolve2) => {
+        process.once("SIGTERM", resolve2);
+        process.once("SIGINT", resolve2);
       });
       return 0;
     }

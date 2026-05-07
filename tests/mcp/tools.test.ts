@@ -10,7 +10,8 @@ import { ERR } from "@/core/errors";
 
 const server = setupServer();
 let work: string;
-const orig = { ...process.env };
+const origDoraHome = process.env.DORA_HOME;
+const origDoraTest = process.env.DORA_TEST;
 
 beforeEach(() => {
   work = mkdtempSync(join(tmpdir(), "dora-mcp-"));
@@ -19,7 +20,8 @@ beforeEach(() => {
   server.listen({ onUnhandledRequest: "bypass" });
 });
 afterEach(() => {
-  process.env = { ...orig };
+  if (origDoraHome === undefined) delete process.env.DORA_HOME; else process.env.DORA_HOME = origDoraHome;
+  if (origDoraTest === undefined) delete process.env.DORA_TEST; else process.env.DORA_TEST = origDoraTest;
   server.close();
   rmSync(work, { recursive: true, force: true });
 });

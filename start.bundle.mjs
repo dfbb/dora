@@ -13009,7 +13009,7 @@ function createHandlers(ctx = defaultPlatformContext) {
         const cfg = loadConfig();
         if (a.local_only) {
           const r = await localQuery(a.query, cfg.top_k);
-          return JSON.stringify(r);
+          return JSON.stringify({ ...r, source: "local" });
         }
         try {
           const r = await queryEngine(a.query, {

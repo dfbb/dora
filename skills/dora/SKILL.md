@@ -15,13 +15,13 @@ user-invocable: true
 
 If `$ARGUMENTS` is empty: call MCP tool `dora_list` with `{}`, display the returned table verbatim, then stop.
 
-## Step 1.5 — Translate to English
+## Step 1.5 — Check for `local:` prefix
 
-If `$ARGUMENTS` contains any non-ASCII characters, translate it to English yourself (do not call any API or tool — just translate inline as part of your reasoning). Use the translated English text as `QUERY` for all subsequent steps. Otherwise set `QUERY` = `$ARGUMENTS`.
+If `$ARGUMENTS` starts with `local:` (case-insensitive), strip the prefix and set `LOCAL_ONLY` = true. Otherwise set `LOCAL_ONLY` = false. Use the stripped text (or the original if no prefix) as `RAW_QUERY`.
 
-## Step 1.6 — Check for `local:` prefix
+## Step 1.6 — Translate to English
 
-If `QUERY` starts with `local:` (case-insensitive), strip the prefix and set `LOCAL_ONLY` = true. Otherwise set `LOCAL_ONLY` = false.
+If `RAW_QUERY` contains any non-ASCII characters, translate it to English yourself (do not call any API or tool — just translate inline as part of your reasoning). Use the translated English text as `QUERY`. Otherwise set `QUERY` = `RAW_QUERY`.
 
 ## Step 2 — Query
 
