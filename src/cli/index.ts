@@ -1,13 +1,32 @@
 import { startMcpServer } from "@/mcp/server";
 import { handlers } from "@/mcp/tools";
 import { isDoraError } from "@/core/errors";
+import { execSync } from "node:child_process";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 
+function killStaleMcpProcesses(): void {
+  try {
+    const self = process.pid;
+    const scriptPath = process.argv[1];
+    if (!scriptPath) return;
+    const out: string = execSync("pgrep -x node 2>/dev/null || true", { encoding: "utf8" });
+    for (const line of out.trim().split("\n")) {
+      const pid = parseInt(line.trim(), 10);
+      if (!pid || pid === self) continue;
+      try {
+        const cmdline: string = execSync(`ps -p ${pid} -o args=`, { encoding: "utf8" }).trim();
+        if (cmdline.includes(scriptPath)) process.kill(pid, "SIGTERM");
+      } catch { /* pid gone or no permission */ }
+    }
+  } catch { /* non-fatal */ }
+}
+
 async function main(): Promise<number> {
   switch (cmd) {
     case "mcp": {
+      killStaleMcpProcesses();
       await startMcpServer();
       await new Promise<void>((resolve) => {
         process.once("SIGTERM", resolve);
