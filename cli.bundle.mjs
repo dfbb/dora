@@ -14434,31 +14434,11 @@ async function startMcpServer() {
 }
 
 // src/cli/index.ts
-import { execSync } from "node:child_process";
 var argv = process.argv.slice(2);
 var cmd = argv[0];
-function killStaleMcpProcesses() {
-  try {
-    const self = process.pid;
-    const scriptPath = process.argv[1];
-    if (!scriptPath) return;
-    const out = execSync("pgrep -x node 2>/dev/null || true", { encoding: "utf8" });
-    for (const line of out.trim().split("\n")) {
-      const pid = parseInt(line.trim(), 10);
-      if (!pid || pid === self) continue;
-      try {
-        const cmdline = execSync(`ps -p ${pid} -o args=`, { encoding: "utf8" }).trim();
-        if (cmdline.includes(scriptPath)) process.kill(pid, "SIGTERM");
-      } catch {
-      }
-    }
-  } catch {
-  }
-}
 async function main() {
   switch (cmd) {
     case "mcp": {
-      killStaleMcpProcesses();
       await startMcpServer();
       await new Promise((resolve2) => {
         process.once("SIGTERM", resolve2);
