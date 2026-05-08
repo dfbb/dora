@@ -6,7 +6,7 @@ import { gitClone, gitRevParse } from "./git";
 import { skillsDir } from "./paths";
 import { ensureConsistent, writeStatus } from "./status";
 import type { SecurityLevel } from "./types";
-import { makeKey, parseOwner, validateName, validateRepoUrl } from "./validate";
+import { makeKey, parseRepoUrl, validateName } from "./validate";
 
 export interface LoadInput {
   name: string;
@@ -25,11 +25,16 @@ export async function loadSkill(input: LoadInput): Promise<LoadOutput> {
 
   const isTest = process.env.DORA_TEST === "1" && input.repoUrl.startsWith("file://");
   let owner: string;
+  let cloneUrl: string;
+  let subPath: string | undefined;
   if (isTest) {
     owner = "local";
+    cloneUrl = input.repoUrl;
   } else {
-    validateRepoUrl(input.repoUrl);
-    owner = parseOwner(input.repoUrl);
+    const parsed = parseRepoUrl(input.repoUrl);
+    owner = parsed.owner;
+    cloneUrl = parsed.cloneUrl;
+    subPath = parsed.subPath;
   }
 
   const key = makeKey(input.name, owner);
@@ -54,9 +59,9 @@ export async function loadSkill(input: LoadInput): Promise<LoadOutput> {
   const tmp = join(dir, `tmp_${key}`);
   if (existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
 
-  gitClone(input.repoUrl, tmp);
+  gitClone(cloneUrl, tmp);
 
-  const primary = findPrimarySkillMd(tmp, input.name);
+  const primary = findPrimarySkillMd(tmp, input.name, subPath);
   if (!primary) {
     rmSync(tmp, { recursive: true, force: true });
     throw new DoraError(ERR.NO_SKILL_MD, "repo contains no SKILL.md", { repoUrl: input.repoUrl });
@@ -88,9 +93,14 @@ export async function loadSkill(input: LoadInput): Promise<LoadOutput> {
   return { key, skill_md_path: resolve(join(target, primaryRel)), cache_hit: false };
 }
 
-function findPrimarySkillMd(repoDir: string, skillName: string): string | null {
+function findPrimarySkillMd(repoDir: string, skillName: string, subPath?: string): string | null {
   const all = walk(repoDir).filter((p) => p.endsWith(`${sep}SKILL.md`) || p === `${repoDir}${sep}SKILL.md`);
   if (all.length === 0) return null;
+  if (subPath) {
+    const subPathNorm = subPath.split("/").join(sep);
+    const exact = all.find((p) => relative(repoDir, p) === `${subPathNorm}${sep}SKILL.md`);
+    if (exact) return exact;
+  }
   const preferred = all.filter((p) => {
     const parts = p.split(sep);
     const idx = parts.lastIndexOf("SKILL.md");

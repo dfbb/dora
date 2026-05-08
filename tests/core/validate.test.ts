@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateName, parseOwner, validateRepoUrl, makeKey } from "@/core/validate";
+import { validateName, parseOwner, validateRepoUrl, makeKey, parseRepoUrl } from "@/core/validate";
 import { DoraError } from "@/core/errors";
 
 describe("validateName", () => {
@@ -45,5 +45,58 @@ describe("validateRepoUrl", () => {
 describe("makeKey", () => {
   it("joins skill_name and owner with underscore", () => {
     expect(makeKey("foo-skill", "alice")).toBe("foo-skill_alice");
+  });
+});
+
+describe("parseRepoUrl", () => {
+  it("parses root https URL", () => {
+    const r = parseRepoUrl("https://github.com/foo/bar");
+    expect(r.owner).toBe("foo");
+    expect(r.cloneUrl).toBe("https://github.com/foo/bar");
+    expect(r.subPath).toBeUndefined();
+  });
+
+  it("parses https URL with .git suffix", () => {
+    const r = parseRepoUrl("https://github.com/foo/bar.git");
+    expect(r.cloneUrl).toBe("https://github.com/foo/bar");
+    expect(r.subPath).toBeUndefined();
+  });
+
+  it("parses sub-path tree URL", () => {
+    const r = parseRepoUrl("https://github.com/foo/marketing-skills/tree/main/eeat-signals");
+    expect(r.owner).toBe("foo");
+    expect(r.cloneUrl).toBe("https://github.com/foo/marketing-skills");
+    expect(r.subPath).toBe("eeat-signals");
+  });
+
+  it("parses nested sub-path tree URL", () => {
+    const r = parseRepoUrl("https://github.com/foo/repo/tree/main/nested/skill");
+    expect(r.cloneUrl).toBe("https://github.com/foo/repo");
+    expect(r.subPath).toBe("nested/skill");
+  });
+
+  it("parses non-main branch tree URL", () => {
+    const r = parseRepoUrl("https://github.com/foo/repo/tree/feature-branch/my-skill");
+    expect(r.cloneUrl).toBe("https://github.com/foo/repo");
+    expect(r.subPath).toBe("my-skill");
+  });
+
+  it("parses ssh URL", () => {
+    const r = parseRepoUrl("git@github.com:foo/bar.git");
+    expect(r.owner).toBe("foo");
+    expect(r.cloneUrl).toBe("git@github.com:foo/bar");
+    expect(r.subPath).toBeUndefined();
+  });
+
+  it("rejects /tree/<branch> without sub-path", () => {
+    expect(() => parseRepoUrl("https://github.com/foo/bar/tree/main")).toThrow(DoraError);
+  });
+
+  it("rejects empty url", () => {
+    expect(() => parseRepoUrl("")).toThrow(DoraError);
+  });
+
+  it("rejects non-github url", () => {
+    expect(() => parseRepoUrl("https://gitlab.com/foo/bar")).toThrow(DoraError);
   });
 });

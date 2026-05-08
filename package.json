@@ -1,6 +1,6 @@
 {
   "name": "@doraskill/dora",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Dynamically query and load community skills for AI coding agents.",
   "type": "module",
   "bin": {
