@@ -13,7 +13,7 @@
 
 ## Comment fonctionne dora
 
-1. **Requête** — Décrivez votre tâche ; dora interroge [skills.sh](https://skills.sh) pour trouver les skills communautaires correspondants
+1. **Requête** — Décrivez votre tâche ; dora interroge [api.doraskill.org](https://api.doraskill.org) pour trouver les skills communautaires correspondants
 2. **Téléchargement** — Le skill correspondant est cloné depuis son **dépôt GitHub** dans un cache local
 3. **Vérification de sécurité** — Chaque skill possède un niveau de sécurité (`safe` / `warn` / `danger`) ; dora filtre selon votre seuil configuré
 4. **Exécution** — Le `SKILL.md` du skill est chargé dans le contexte de l'IA et l'agent suit ses instructions

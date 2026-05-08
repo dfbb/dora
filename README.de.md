@@ -13,7 +13,7 @@
 
 ## Wie dora funktioniert
 
-1. **Abfrage** — Beschreiben Sie Ihre Aufgabe; dora fragt [skills.sh](https://skills.sh) nach passenden Community-Skills
+1. **Abfrage** — Beschreiben Sie Ihre Aufgabe; dora fragt [api.doraskill.org](https://api.doraskill.org) nach passenden Community-Skills
 2. **Download** — Der passende Skill wird aus seinem **GitHub-Repository** in einen lokalen Cache geklont
 3. **Sicherheitsprüfung** — Jeder Skill hat ein Sicherheitslevel (`safe` / `warn` / `danger`); dora filtert nach Ihrem konfigurierten Schwellenwert
 4. **Ausführung** — Das `SKILL.md` des Skills wird in den KI-Kontext geladen und der Agent folgt seinen Anweisungen

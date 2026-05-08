@@ -13,7 +13,7 @@
 
 ## dora 如何工作
 
-1. **查询** — 描述你的任务，dora 向 [skills.sh](https://skills.sh) 查询匹配的社区 skill
+1. **查询** — 描述你的任务，dora 向 [api.doraskill.org](https://api.doraskill.org) 查询匹配的社区 skill
 2. **下载** — 找到合适的 skill 后，从对应的 **GitHub 仓库** 克隆到本地缓存
 3. **安全检查** — 每个 skill 都有安全等级（`safe` / `warn` / `danger`），dora 根据你配置的阈值决定是否加载
 4. **执行** — 将 skill 的 `SKILL.md` 读入 AI 上下文，agent 按指令完成任务

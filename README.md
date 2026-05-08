@@ -13,7 +13,7 @@
 
 ## How it works
 
-1. **Query** — Describe your task; dora queries [skills.sh](https://skills.sh) for matching community skills
+1. **Query** — Describe your task; dora queries [api.doraskill.org](https://api.doraskill.org) for matching community skills
 2. **Download** — The matched skill is cloned from its **GitHub repository** into a local cache
 3. **Security check** — Each skill has a security level (`safe` / `warn` / `danger`); dora filters by your configured threshold
 4. **Execute** — The skill's `SKILL.md` is loaded into the AI's context and the agent follows its instructions
