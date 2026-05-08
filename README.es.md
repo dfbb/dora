@@ -55,18 +55,6 @@ Fusiona el servidor MCP en `~/.codex/config.toml` (fusión TOML profunda, copia 
 </details>
 
 <details>
-<summary><strong>Cursor</strong></summary>
-
-```bash
-npm install -g @doraskill/dora
-dora install cursor
-```
-
-Escribe `.cursor/mcp.json` (fusión profunda) y `.cursor/rules/dora.mdc`.
-
-</details>
-
-<details>
 <summary><strong>OpenCode</strong></summary>
 
 ```bash
@@ -91,18 +79,6 @@ Fusiona el servidor MCP en `~/.gemini/settings.json` y agrega el enrutamiento a 
 </details>
 
 <details>
-<summary><strong>OpenClaw</strong></summary>
-
-```bash
-npm install -g @doraskill/dora
-dora install openclaw
-```
-
-Fusiona la configuración MCP en `openclaw.json`.
-
-</details>
-
-<details>
 <summary><strong>Qwen Code</strong></summary>
 
 ```bash
@@ -122,7 +98,7 @@ dora detecta automáticamente la plataforma CLI en ejecución y adapta la carga 
 
 Cuando `dora_load` devuelve un `execution_context` no nulo, el agente lo muestra antes de ejecutar el skill — incluye mapeos de nombres de herramientas o advertencias de compatibilidad para plataformas no verificadas.
 
-Plataformas soportadas: `claude-code`, `codex`, `cursor`, `opencode`, `gemini-cli`, `qwen-code`, `openclaw`.
+Plataformas soportadas: `claude-code`, `codex`, `opencode`, `gemini-cli`, `qwen-code`.
 
 ## Fallback sin conexión
 

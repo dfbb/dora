@@ -9,11 +9,6 @@ describe("generateExecutionContext", () => {
     expect(generateExecutionContext(d)).toBeNull();
   });
 
-  it("returns null for cursor (native)", () => {
-    const d: DetectionResult = { platform: "cursor", source: "env-override" };
-    expect(generateExecutionContext(d)).toBeNull();
-  });
-
   it("returns mapping table for gemini-cli", () => {
     const d: DetectionResult = { platform: "gemini-cli", source: "clientInfo" };
     const ctx = generateExecutionContext(d)!;
@@ -56,8 +51,8 @@ describe("generateExecutionContext", () => {
 
   it("TOOL_MAPPINGS covers all PlatformId values", () => {
     const ids = [
-      "claude-code", "codex", "openclaw", "opencode",
-      "gemini-cli", "qwen-code", "cursor", "unknown",
+      "claude-code", "codex", "opencode",
+      "gemini-cli", "qwen-code", "unknown",
     ];
     for (const id of ids) {
       expect(TOOL_MAPPINGS[id as keyof typeof TOOL_MAPPINGS]).toBeDefined();

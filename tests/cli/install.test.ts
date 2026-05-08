@@ -20,51 +20,29 @@ afterEach(() => {
   rmSync(work, { recursive: true, force: true });
 });
 
-describe("install:cursor", () => {
-  it("writes mcp.json and dora.mdc to cwd", () => {
-    runInstall("cursor", []);
-    expect(existsSync(join(work, ".cursor/mcp.json"))).toBe(true);
-    expect(existsSync(join(work, ".cursor/rules/dora.mdc"))).toBe(true);
-  });
-
-  it("merges with existing mcp.json", () => {
-    mkdirSync(join(work, ".cursor"), { recursive: true });
-    writeFileSync(join(work, ".cursor/mcp.json"), JSON.stringify({ mcpServers: { other: { command: "x" } } }));
-    runInstall("cursor", []);
-    const merged = JSON.parse(readFileSync(join(work, ".cursor/mcp.json"), "utf8"));
-    expect(merged.mcpServers.other).toBeDefined();
-    expect(merged.mcpServers.dora).toBeDefined();
-  });
-
-  it("--dry-run does not write", () => {
-    runInstall("cursor", ["--dry-run"]);
-    expect(existsSync(join(work, ".cursor/mcp.json"))).toBe(false);
-  });
-});
-
 describe("deep merge (json-merge)", () => {
   it("preserves three-level nested keys", () => {
-    mkdirSync(join(work, ".cursor"), { recursive: true });
+    mkdirSync(join(work, ".gemini"), { recursive: true });
     writeFileSync(
-      join(work, ".cursor/mcp.json"),
+      join(work, ".gemini/settings.json"),
       JSON.stringify({
         mcpServers: { other: { command: "x", args: ["y"] } },
       }),
     );
-    runInstall("cursor", []);
-    const result = JSON.parse(readFileSync(join(work, ".cursor/mcp.json"), "utf8"));
+    runInstall("gemini-cli", []);
+    const result = JSON.parse(readFileSync(join(work, ".gemini/settings.json"), "utf8"));
     expect(result.mcpServers.other).toEqual({ command: "x", args: ["y"] });
     expect(result.mcpServers.dora).toBeDefined();
   });
 
   it("does not flatten arrays (arrays replaced, not merged)", () => {
-    mkdirSync(join(work, ".cursor"), { recursive: true });
+    mkdirSync(join(work, ".gemini"), { recursive: true });
     writeFileSync(
-      join(work, ".cursor/mcp.json"),
+      join(work, ".gemini/settings.json"),
       JSON.stringify({ mcpServers: { other: { command: "x", args: ["a", "b"] } } }),
     );
-    runInstall("cursor", []);
-    const result = JSON.parse(readFileSync(join(work, ".cursor/mcp.json"), "utf8"));
+    runInstall("gemini-cli", []);
+    const result = JSON.parse(readFileSync(join(work, ".gemini/settings.json"), "utf8"));
     // arrays in existing are preserved since dora key doesn't overlap
     expect(result.mcpServers.other.args).toEqual(["a", "b"]);
   });

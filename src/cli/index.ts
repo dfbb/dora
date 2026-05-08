@@ -70,7 +70,6 @@ async function main(): Promise<number> {
       return runInstall(result.target, argv.slice(2));
     }
     case "install:codex":
-    case "install:cursor":
     case "install:opencode": {
       const { runInstall } = await import("./commands/install");
       return runInstall(cmd.replace("install:", ""), argv.slice(1));

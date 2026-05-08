@@ -1,11 +1,9 @@
 export type PlatformId =
   | "claude-code"
   | "codex"
-  | "openclaw"
   | "opencode"
   | "gemini-cli"
   | "qwen-code"
-  | "cursor"
   | "unknown";
 
 export interface DetectionResult {
@@ -15,8 +13,8 @@ export interface DetectionResult {
 }
 
 const VALID_PLATFORMS = new Set<string>([
-  "claude-code", "codex", "openclaw", "opencode",
-  "gemini-cli", "qwen-code", "cursor",
+  "claude-code", "codex", "opencode",
+  "gemini-cli", "qwen-code",
 ]);
 
 interface ClientInfo {
@@ -81,7 +79,7 @@ export function detectRuntimePlatform(
 }
 
 export const INSTALL_TARGETS = [
-  "codex", "cursor", "opencode", "openclaw", "gemini-cli", "qwen-code",
+  "codex", "opencode", "gemini-cli", "qwen-code",
 ] as const;
 
 export type InstallTarget = typeof INSTALL_TARGETS[number];

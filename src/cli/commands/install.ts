@@ -3,17 +3,14 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { codex } from "@/platforms/codex";
-import { cursor } from "@/platforms/cursor";
 import { opencode } from "@/platforms/opencode";
 import { geminiCli } from "@/platforms/gemini-cli";
-import { openClaw } from "@/platforms/openclaw";
 import { qwenCode } from "@/platforms/qwen-code";
 import type { PlatformAdapter } from "@/platforms/types";
 
 const ADAPTERS: Record<string, PlatformAdapter> = {
-  codex, cursor, opencode,
+  codex, opencode,
   "gemini-cli": geminiCli,
-  openclaw: openClaw,
   "qwen-code": qwenCode,
 };
 

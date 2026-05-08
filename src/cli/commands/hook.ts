@@ -1,10 +1,9 @@
 import { claudeCode } from "@/platforms/claude-code";
 import { codex } from "@/platforms/codex";
-import { cursor } from "@/platforms/cursor";
 import { opencode } from "@/platforms/opencode";
 import type { PlatformAdapter } from "@/platforms/types";
 
-const ADAPTERS: Record<string, PlatformAdapter> = { "claude-code": claudeCode, codex, cursor, opencode };
+const ADAPTERS: Record<string, PlatformAdapter> = { "claude-code": claudeCode, codex, opencode };
 
 async function readStdin(): Promise<string> {
   return new Promise((resolve) => {

@@ -55,18 +55,6 @@ dora install codex
 </details>
 
 <details>
-<summary><strong>Cursor</strong></summary>
-
-```bash
-npm install -g @doraskill/dora
-dora install cursor
-```
-
-写入 `.cursor/mcp.json`（深度合并）和 `.cursor/rules/dora.mdc`。
-
-</details>
-
-<details>
 <summary><strong>OpenCode</strong></summary>
 
 ```bash
@@ -91,18 +79,6 @@ dora install gemini-cli
 </details>
 
 <details>
-<summary><strong>OpenClaw</strong></summary>
-
-```bash
-npm install -g @doraskill/dora
-dora install openclaw
-```
-
-将 MCP 配置合并写入 `openclaw.json`。
-
-</details>
-
-<details>
 <summary><strong>Qwen Code</strong></summary>
 
 ```bash
@@ -122,7 +98,7 @@ dora 自动检测当前运行的 CLI 平台并适配 skill 加载方式。
 
 当 `dora_load` 返回非空的 `execution_context` 时，agent 会在运行 skill 前先输出该内容——包括工具名映射（如 Gemini CLI 上 `Read` → `read_file`）或未验证平台的兼容性警告。
 
-支持平台：`claude-code`、`codex`、`cursor`、`opencode`、`gemini-cli`、`qwen-code`、`openclaw`。
+支持平台：`claude-code`、`codex`、`opencode`、`gemini-cli`、`qwen-code`。
 
 ## 离线回退
 

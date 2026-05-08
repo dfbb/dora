@@ -55,18 +55,6 @@ Merges MCP server into `~/.codex/config.toml` (TOML deep merge, `.bak` backup), 
 </details>
 
 <details>
-<summary><strong>Cursor</strong></summary>
-
-```bash
-npm install -g @doraskill/dora
-dora install cursor
-```
-
-Writes `.cursor/mcp.json` (deep merged) and `.cursor/rules/dora.mdc`.
-
-</details>
-
-<details>
 <summary><strong>OpenCode</strong></summary>
 
 ```bash
@@ -91,18 +79,6 @@ Merges MCP server into `~/.gemini/settings.json` and appends routing to `GEMINI.
 </details>
 
 <details>
-<summary><strong>OpenClaw</strong></summary>
-
-```bash
-npm install -g @doraskill/dora
-dora install openclaw
-```
-
-Merges MCP config into `openclaw.json`.
-
-</details>
-
-<details>
 <summary><strong>Qwen Code</strong></summary>
 
 ```bash
@@ -122,7 +98,7 @@ dora detects which CLI platform is running and adapts skill loading automaticall
 
 When `dora_load` returns a non-null `execution_context`, the agent outputs it before running the skill — this includes tool name mappings (e.g. `Read` → `read_file` on Gemini CLI) or compatibility warnings for unverified platforms.
 
-Supported platforms: `claude-code`, `codex`, `cursor`, `opencode`, `gemini-cli`, `qwen-code`, `openclaw`.
+Supported platforms: `claude-code`, `codex`, `opencode`, `gemini-cli`, `qwen-code`.
 
 ## Offline Fallback
 

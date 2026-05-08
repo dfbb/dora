@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { codex } from "@/platforms/codex";
-import { cursor } from "@/platforms/cursor";
 import { opencode } from "@/platforms/opencode";
 import { claudeCode } from "@/platforms/claude-code";
 import { geminiCli } from "@/platforms/gemini-cli";
-import { openClaw } from "@/platforms/openclaw";
 import { qwenCode } from "@/platforms/qwen-code";
 
 describe("codex adapter", () => {
@@ -30,14 +28,6 @@ describe("codex adapter", () => {
     expect(cfg.mode).toBe("toml-merge");
     expect(cfg.backup).toBe(true);
     expect(cfg.atomic).toBe(true);
-  });
-});
-
-describe("cursor adapter", () => {
-  it("install files include mcp.json + rules .mdc", () => {
-    const paths = cursor.installFiles().map((f) => f.path);
-    expect(paths).toContain(".cursor/mcp.json");
-    expect(paths).toContain(".cursor/rules/dora.mdc");
   });
 });
 
@@ -78,18 +68,6 @@ describe("gemini-cli adapter", () => {
     const routing = geminiCli.installFiles().find((f) => f.path.endsWith("GEMINI.md"))!;
     expect(routing.mode).toBe("append-if-missing");
     expect(routing.marker).toBe("<!-- dora:routing -->");
-  });
-});
-
-describe("openclaw adapter", () => {
-  it("install files include openclaw.json", () => {
-    const paths = openClaw.installFiles().map((f) => f.path);
-    expect(paths).toContain("openclaw.json");
-  });
-  it("openclaw.json uses json-merge with backup", () => {
-    const cfg = openClaw.installFiles().find((f) => f.path.endsWith("openclaw.json"))!;
-    expect(cfg.mode).toBe("json-merge");
-    expect(cfg.backup).toBe(true);
   });
 });
 

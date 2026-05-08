@@ -24,12 +24,6 @@ describe("detectRuntimePlatform", () => {
     expect(r.warning).toContain("nope");
   });
 
-  it("DORA_PLATFORM=cursor returns cursor (defensive fallback)", () => {
-    const r = detectRuntimePlatform(undefined, { DORA_PLATFORM: "cursor" });
-    expect(r.platform).toBe("cursor");
-    expect(r.source).toBe("env-override");
-  });
-
   it("clientInfo.name gemini-cli-mcp-client returns gemini-cli", () => {
     const r = detectRuntimePlatform({ name: "gemini-cli-mcp-client" }, {});
     expect(r.platform).toBe("gemini-cli");

@@ -8,8 +8,6 @@ export type PlatformMapping =
 
 export const TOOL_MAPPINGS: Record<PlatformId, PlatformMapping> = {
   "claude-code": { kind: "native" },
-  cursor: { kind: "native" },
-  openclaw: { kind: "unverified" },
   "qwen-code": { kind: "unverified" },
   opencode: {
     kind: "mapping",
@@ -48,7 +46,7 @@ export const TOOL_MAPPINGS: Record<PlatformId, PlatformMapping> = {
       "tool names, you may need to adapt the commands manually.",
       "",
       "To specify your platform explicitly, set: DORA_PLATFORM=<platform-id>",
-      "Supported overrides: claude-code, codex, openclaw, opencode, gemini-cli, qwen-code, cursor (manual fallback only)",
+      "Supported overrides: claude-code, codex, opencode, gemini-cli, qwen-code",
     ].join("\n"),
   },
 };
