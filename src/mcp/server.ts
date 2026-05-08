@@ -3,10 +3,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { createHandlers, toolDefs } from "./tools";
 import { detectRuntimePlatform } from "@/platforms/detect";
+import { VERSION } from "@/index";
 
 export async function startMcpServer(): Promise<void> {
   const server = new Server(
-    { name: "dora", version: "0.1.0" },
+    { name: "dora", version: VERSION },
     { capabilities: { tools: {} } },
   );
 

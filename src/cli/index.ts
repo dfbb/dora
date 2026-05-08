@@ -1,6 +1,7 @@
 import { startMcpServer } from "@/mcp/server";
 import { handlers } from "@/mcp/tools";
 import { isDoraError } from "@/core/errors";
+import { VERSION } from "@/index";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -80,7 +81,7 @@ async function main(): Promise<number> {
     }
     case "--version":
     case "-v":
-      process.stdout.write("dora 0.1.13\n"); return 0;
+      process.stdout.write(`dora ${VERSION}\n`); return 0;
     case "--help":
     case "-h":
     case undefined:
