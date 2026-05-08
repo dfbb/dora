@@ -3,7 +3,7 @@ import MiniSearch from "minisearch";
 import type { SkillCandidate, QueryResult } from "./query";
 import { DoraError, ERR } from "./errors";
 import type { SecurityLevel } from "./types";
-import embeddedSkillshGz from "../../asset/skillsh.json.gz";
+import embeddedSkillshGz from "../../asset/skilldb.json.gz";
 
 export type LocalQueryResult = QueryResult & { source: "local" };
 
@@ -44,7 +44,7 @@ async function loadEmbeddedAsset(): Promise<Uint8Array> {
   try {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
-    return readFileSync(join(dir, "skillsh.json.gz"));
+    return readFileSync(join(dir, "skilldb.json.gz"));
   } catch (e) {
     throw new DoraError(ERR.LOCAL_INDEX_BROKEN, "asset read failed", {
       reason: "asset_read_failed",

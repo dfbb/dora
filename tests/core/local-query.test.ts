@@ -7,14 +7,14 @@ import { fileURLToPath } from "node:url";
 import { ERR } from "@/core/errors";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const FIXTURE_GZ = join(here, "..", "fixtures", "skillsh-mini.json.gz");
+const FIXTURE_GZ = join(here, "..", "fixtures", "skilldb-mini.json.gz");
 
 let work: string;
 const orig = { ...process.env };
 
 beforeEach(() => {
   work = mkdtempSync(join(tmpdir(), "dora-local-"));
-  copyFileSync(FIXTURE_GZ, join(work, "skillsh.json.gz"));
+  copyFileSync(FIXTURE_GZ, join(work, "skilldb.json.gz"));
   process.env.DORA_ASSET_DIR = work;
 });
 
@@ -85,7 +85,7 @@ describe("local-query: load + map", () => {
 
 describe("local-query: errors", () => {
   it("throws LOCAL_INDEX_BROKEN when asset file is missing", async () => {
-    rmSync(join(work, "skillsh.json.gz"));
+    rmSync(join(work, "skilldb.json.gz"));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -95,7 +95,7 @@ describe("local-query: errors", () => {
   });
 
   it("throws LOCAL_INDEX_BROKEN on gunzip failure", async () => {
-    writeFileSync(join(work, "skillsh.json.gz"), Buffer.from("not a gzip"));
+    writeFileSync(join(work, "skilldb.json.gz"), Buffer.from("not a gzip"));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -105,7 +105,7 @@ describe("local-query: errors", () => {
   });
 
   it("throws LOCAL_INDEX_BROKEN on JSON parse failure", async () => {
-    writeFileSync(join(work, "skillsh.json.gz"), gzipSync(Buffer.from("{not json")));
+    writeFileSync(join(work, "skilldb.json.gz"), gzipSync(Buffer.from("{not json")));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -115,7 +115,7 @@ describe("local-query: errors", () => {
   });
 
   it("throws LOCAL_INDEX_BROKEN on schema_version mismatch", async () => {
-    writeFileSync(join(work, "skillsh.json.gz"), gzipSync(Buffer.from(JSON.stringify({ schema_version: 99, skills: [] }))));
+    writeFileSync(join(work, "skilldb.json.gz"), gzipSync(Buffer.from(JSON.stringify({ schema_version: 99, skills: [] }))));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -129,7 +129,7 @@ describe("local-query: singleton", () => {
   it("reuses the index across calls (does not re-read file)", async () => {
     const { localQuery } = await import("@/core/local-query");
     await localQuery("pytest", 5);
-    rmSync(join(work, "skillsh.json.gz"));
+    rmSync(join(work, "skilldb.json.gz"));
     const r2 = await localQuery("pytest", 5);
     expect(r2.skills[0]!.name).toBe("pytest-helper");
   });
@@ -138,7 +138,7 @@ describe("local-query: singleton", () => {
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     await localQuery("pytest", 5);
     __resetLocalIndexForTest();
-    rmSync(join(work, "skillsh.json.gz"));
+    rmSync(join(work, "skilldb.json.gz"));
     await expect(localQuery("pytest", 5)).rejects.toMatchObject({
       code: ERR.LOCAL_INDEX_BROKEN,
     });
