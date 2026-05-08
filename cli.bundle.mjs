@@ -14354,7 +14354,7 @@ init_detect();
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.15",
+  version: "0.1.16",
   description: "Dynamically query and load community skills for AI coding agents.",
   type: "module",
   bin: {
