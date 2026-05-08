@@ -12380,22 +12380,22 @@ function ensureConsistent() {
 // src/core/validate.ts
 var NAME_RE = /^[a-zA-Z0-9._-]{1,64}$/;
 var GH_HTTPS = /^https?:\/\/github\.com\/([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+?)(?:\.git)?\/?$/;
+var GH_HTTPS_TREE = /^https?:\/\/github\.com\/([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+?)\/tree\/[^/]+\/(.+?)\/?$/;
 var GH_SSH = /^git@github\.com:([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+?)(?:\.git)?$/;
+function parseRepoUrl(url) {
+  if (!url) throw new DoraError(ERR.VALIDATION, "empty repo url");
+  let m = GH_HTTPS.exec(url);
+  if (m) return { owner: m[1], cloneUrl: `https://github.com/${m[1]}/${m[2]}` };
+  m = GH_HTTPS_TREE.exec(url);
+  if (m) return { owner: m[1], cloneUrl: `https://github.com/${m[1]}/${m[2]}`, subPath: m[3] };
+  m = GH_SSH.exec(url);
+  if (m) return { owner: m[1], cloneUrl: `git@github.com:${m[1]}/${m[2]}` };
+  throw new DoraError(ERR.VALIDATION, `unrecognized github url: ${JSON.stringify(url)}`);
+}
 function validateName(name) {
   if (!NAME_RE.test(name)) {
     throw new DoraError(ERR.VALIDATION, `invalid skill name: ${JSON.stringify(name)}`);
   }
-}
-function parseOwner(url) {
-  for (const re of [GH_HTTPS, GH_SSH]) {
-    const m = re.exec(url);
-    if (m) return m[1];
-  }
-  throw new DoraError(ERR.VALIDATION, `unrecognized github url: ${JSON.stringify(url)}`);
-}
-function validateRepoUrl(url) {
-  if (!url) throw new DoraError(ERR.VALIDATION, "empty repo url");
-  parseOwner(url);
 }
 function makeKey(skillName, owner) {
   return `${skillName}_${owner}`;
@@ -12406,11 +12406,16 @@ async function loadSkill(input) {
   validateName(input.name);
   const isTest = process.env.DORA_TEST === "1" && input.repoUrl.startsWith("file://");
   let owner;
+  let cloneUrl;
+  let subPath;
   if (isTest) {
     owner = "local";
+    cloneUrl = input.repoUrl;
   } else {
-    validateRepoUrl(input.repoUrl);
-    owner = parseOwner(input.repoUrl);
+    const parsed = parseRepoUrl(input.repoUrl);
+    owner = parsed.owner;
+    cloneUrl = parsed.cloneUrl;
+    subPath = parsed.subPath;
   }
   const key = makeKey(input.name, owner);
   const cfg = loadConfig();
@@ -12431,8 +12436,8 @@ async function loadSkill(input) {
   const target = join2(dir, key);
   const tmp = join2(dir, `tmp_${key}`);
   if (existsSync5(tmp)) rmSync(tmp, { recursive: true, force: true });
-  gitClone(input.repoUrl, tmp);
-  const primary = findPrimarySkillMd(tmp, input.name);
+  gitClone(cloneUrl, tmp);
+  const primary = findPrimarySkillMd(tmp, input.name, subPath);
   if (!primary) {
     rmSync(tmp, { recursive: true, force: true });
     throw new DoraError(ERR.NO_SKILL_MD, "repo contains no SKILL.md", { repoUrl: input.repoUrl });
@@ -12462,9 +12467,14 @@ async function loadSkill(input) {
   writeStatus(status);
   return { key, skill_md_path: resolve(join2(target, primaryRel)), cache_hit: false };
 }
-function findPrimarySkillMd(repoDir, skillName) {
+function findPrimarySkillMd(repoDir, skillName, subPath) {
   const all = walk(repoDir).filter((p) => p.endsWith(`${sep}SKILL.md`) || p === `${repoDir}${sep}SKILL.md`);
   if (all.length === 0) return null;
+  if (subPath) {
+    const subPathNorm = subPath.split("/").join(sep);
+    const exact = all.find((p) => relative(repoDir, p) === `${subPathNorm}${sep}SKILL.md`);
+    if (exact) return exact;
+  }
   const preferred = all.filter((p) => {
     const parts = p.split(sep);
     const idx = parts.lastIndexOf("SKILL.md");
@@ -12730,7 +12740,6 @@ import { join as join5 } from "node:path";
 function detectPlatform() {
   if (process.env.CLAUDE_PLUGIN_ROOT) return "claude-code";
   if (existsSync8(join5(homedir2(), ".codex", "config.toml"))) return "codex";
-  if (existsSync8(".cursor/mcp.json") || existsSync8(join5(homedir2(), ".cursor/mcp.json"))) return "cursor";
   if (existsSync8("opencode.json") || existsSync8(join5(homedir2(), ".config/opencode/opencode.json"))) return "opencode";
   return "unknown";
 }
@@ -12742,15 +12751,6 @@ function detectMcp(p) {
     } catch {
       return false;
     }
-  }
-  if (p === "cursor") {
-    for (const f of [".cursor/mcp.json", join5(homedir2(), ".cursor/mcp.json")]) {
-      try {
-        if (readFileSync4(f, "utf8").includes('"dora"')) return true;
-      } catch {
-      }
-    }
-    return false;
   }
   if (p === "opencode") {
     for (const f of ["opencode.json", join5(homedir2(), ".config/opencode/opencode.json")]) {
@@ -12820,11 +12820,9 @@ async function runDoctor() {
 var VALID_PLATFORMS = /* @__PURE__ */ new Set([
   "claude-code",
   "codex",
-  "openclaw",
   "opencode",
   "gemini-cli",
-  "qwen-code",
-  "cursor"
+  "qwen-code"
 ]);
 var CLIENT_NAME_MAP = {
   "claude-code": "claude-code",
@@ -12871,9 +12869,7 @@ function detectRuntimePlatform(clientInfo, env) {
 }
 var INSTALL_TARGETS = [
   "codex",
-  "cursor",
   "opencode",
-  "openclaw",
   "gemini-cli",
   "qwen-code"
 ];
@@ -12882,8 +12878,6 @@ var INSTALL_SET = new Set(INSTALL_TARGETS);
 // src/platforms/tool-mapping.ts
 var TOOL_MAPPINGS = {
   "claude-code": { kind: "native" },
-  cursor: { kind: "native" },
-  openclaw: { kind: "unverified" },
   "qwen-code": { kind: "unverified" },
   opencode: {
     kind: "mapping",
@@ -12934,7 +12928,7 @@ var TOOL_MAPPINGS = {
       "tool names, you may need to adapt the commands manually.",
       "",
       "To specify your platform explicitly, set: DORA_PLATFORM=<platform-id>",
-      "Supported overrides: claude-code, codex, openclaw, opencode, gemini-cli, qwen-code, cursor (manual fallback only)"
+      "Supported overrides: claude-code, codex, opencode, gemini-cli, qwen-code"
     ].join("\n")
   }
 };
@@ -13106,10 +13100,60 @@ var toolDefs = [
   { name: "dora_purge", description: "Permanently delete all cached skills.", inputSchema: { type: "object", properties: { confirm: { type: "boolean" } }, required: ["confirm"] } }
 ];
 
+// package.json
+var package_default = {
+  name: "@doraskill/dora",
+  version: "0.1.14",
+  description: "Dynamically query and load community skills for AI coding agents.",
+  type: "module",
+  bin: {
+    dora: "bin/dora.js"
+  },
+  scripts: {
+    build: "node esbuild.config.mjs",
+    test: "vitest run",
+    "test:watch": "vitest",
+    typecheck: "tsc --noEmit",
+    prepublishOnly: "npm run build && npm test"
+  },
+  files: [
+    "cli.bundle.mjs",
+    "start.bundle.mjs",
+    "bin/",
+    "hooks/",
+    "skills/",
+    "configs/",
+    ".claude-plugin/",
+    "README.md",
+    "LICENSE"
+  ],
+  dependencies: {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    minisearch: "^7.2.0",
+    "smol-toml": "^1.6.1",
+    yaml: "^2.5.0",
+    zod: "^3.23.0"
+  },
+  devDependencies: {
+    "@types/node": "^22.0.0",
+    esbuild: "^0.23.0",
+    msw: "^2.0.0",
+    typescript: "^5.5.0",
+    vitest: "^2.0.0"
+  },
+  engines: {
+    node: ">=18"
+  },
+  license: "MIT"
+};
+
+// src/index.ts
+var VERSION = package_default.version;
+
 // src/mcp/server.ts
 async function startMcpServer() {
   const server = new Server(
-    { name: "dora", version: "0.1.0" },
+    { name: "dora", version: VERSION },
     { capabilities: { tools: {} } }
   );
   const handlers2 = createHandlers({

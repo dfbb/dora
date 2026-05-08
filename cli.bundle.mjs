@@ -3163,11 +3163,11 @@ var require_utils = __commonJS({
       let endIpv6 = false;
       let consume = consumeHextets;
       for (let i = 0; i < input.length; i++) {
-        const cursor2 = input[i];
-        if (cursor2 === "[" || cursor2 === "]") {
+        const cursor = input[i];
+        if (cursor === "[" || cursor === "]") {
           continue;
         }
-        if (cursor2 === ":") {
+        if (cursor === ":") {
           if (endipv6Encountered === true) {
             endIpv6 = true;
           }
@@ -3183,13 +3183,13 @@ var require_utils = __commonJS({
           }
           address.push(":");
           continue;
-        } else if (cursor2 === "%") {
+        } else if (cursor === "%") {
           if (!consume(buffer, address, output)) {
             break;
           }
           consume = consumeIsZone;
         } else {
-          buffer.push(cursor2);
+          buffer.push(cursor);
           continue;
         }
       }
@@ -6918,11 +6918,9 @@ var init_detect = __esm({
     VALID_PLATFORMS = /* @__PURE__ */ new Set([
       "claude-code",
       "codex",
-      "openclaw",
       "opencode",
       "gemini-cli",
-      "qwen-code",
-      "cursor"
+      "qwen-code"
     ]);
     CLIENT_NAME_MAP = {
       "claude-code": "claude-code",
@@ -6944,9 +6942,7 @@ var init_detect = __esm({
     ];
     INSTALL_TARGETS = [
       "codex",
-      "cursor",
       "opencode",
-      "openclaw",
       "gemini-cli",
       "qwen-code"
     ];
@@ -7898,33 +7894,6 @@ DORA_PLATFORM = "codex"
   }
 });
 
-// src/platforms/cursor.ts
-var MCP_JSON, MDC, cursor;
-var init_cursor = __esm({
-  "src/platforms/cursor.ts"() {
-    "use strict";
-    init_types();
-    MCP_JSON = JSON.stringify({ mcpServers: { dora: { command: "dora", args: ["mcp"], env: { DORA_PLATFORM: "cursor" } } } }, null, 2);
-    MDC = `---
-description: dora skill discovery
-alwaysApply: true
----
-
-${ROUTING}
-`;
-    cursor = {
-      name: "cursor",
-      installFiles: () => [
-        { path: ".cursor/mcp.json", content: MCP_JSON, mode: "json-merge" },
-        { path: ".cursor/rules/dora.mdc", content: MDC, mode: "write" }
-      ],
-      sessionStartHook: () => ({
-        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING }
-      })
-    };
-  }
-});
-
 // src/platforms/opencode.ts
 var OPENCODE_JSON, opencode;
 var init_opencode = __esm({
@@ -7962,27 +7931,6 @@ var init_gemini_cli = __esm({
       installFiles: () => [
         { path: "~/.gemini/settings.json", content: SETTINGS_JSON, mode: "json-merge", backup: true, atomic: true },
         { path: "GEMINI.md", content: ROUTING_WITH_CONTEXT + "\n", mode: "append-if-missing", marker: "<!-- dora:routing -->" }
-      ],
-      sessionStartHook: () => ({
-        hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
-      })
-    };
-  }
-});
-
-// src/platforms/openclaw.ts
-var OPENCLAW_JSON, openClaw;
-var init_openclaw = __esm({
-  "src/platforms/openclaw.ts"() {
-    "use strict";
-    init_types();
-    OPENCLAW_JSON = JSON.stringify({
-      plugins: { entries: { dora: { command: "dora", args: ["mcp"], env: { DORA_PLATFORM: "openclaw" } } } }
-    }, null, 2);
-    openClaw = {
-      name: "openclaw",
-      installFiles: () => [
-        { path: "openclaw.json", content: OPENCLAW_JSON, mode: "json-merge", backup: true, atomic: true }
       ],
       sessionStartHook: () => ({
         hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: ROUTING_WITH_CONTEXT }
@@ -8121,17 +8069,13 @@ var init_install = __esm({
     "use strict";
     init_dist();
     init_codex();
-    init_cursor();
     init_opencode();
     init_gemini_cli();
-    init_openclaw();
     init_qwen_code();
     ADAPTERS = {
       codex,
-      cursor,
       opencode,
       "gemini-cli": geminiCli,
-      openclaw: openClaw,
       "qwen-code": qwenCode
     };
   }
@@ -8195,9 +8139,8 @@ var init_hook = __esm({
     "use strict";
     init_claude_code();
     init_codex();
-    init_cursor();
     init_opencode();
-    ADAPTERS2 = { "claude-code": claudeCode, codex, cursor, opencode };
+    ADAPTERS2 = { "claude-code": claudeCode, codex, opencode };
   }
 });
 
@@ -10758,8 +10701,8 @@ var Protocol = class {
           }
         }
       },
-      listTasks: (cursor2) => {
-        return taskStore.listTasks(cursor2, sessionId);
+      listTasks: (cursor) => {
+        return taskStore.listTasks(cursor, sessionId);
       }
     };
   }
@@ -11049,8 +10992,8 @@ var ExperimentalServerTasks = class {
    *
    * @experimental
    */
-  async listTasks(cursor2, options) {
-    return this._server.listTasks(cursor2 ? { cursor: cursor2 } : void 0, options);
+  async listTasks(cursor, options) {
+    return this._server.listTasks(cursor ? { cursor } : void 0, options);
   }
   /**
    * Cancels a running task.
@@ -13741,22 +13684,22 @@ function ensureConsistent() {
 // src/core/validate.ts
 var NAME_RE = /^[a-zA-Z0-9._-]{1,64}$/;
 var GH_HTTPS = /^https?:\/\/github\.com\/([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+?)(?:\.git)?\/?$/;
+var GH_HTTPS_TREE = /^https?:\/\/github\.com\/([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+?)\/tree\/[^/]+\/(.+?)\/?$/;
 var GH_SSH = /^git@github\.com:([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)\/([a-zA-Z0-9._-]+?)(?:\.git)?$/;
+function parseRepoUrl(url) {
+  if (!url) throw new DoraError(ERR.VALIDATION, "empty repo url");
+  let m = GH_HTTPS.exec(url);
+  if (m) return { owner: m[1], cloneUrl: `https://github.com/${m[1]}/${m[2]}` };
+  m = GH_HTTPS_TREE.exec(url);
+  if (m) return { owner: m[1], cloneUrl: `https://github.com/${m[1]}/${m[2]}`, subPath: m[3] };
+  m = GH_SSH.exec(url);
+  if (m) return { owner: m[1], cloneUrl: `git@github.com:${m[1]}/${m[2]}` };
+  throw new DoraError(ERR.VALIDATION, `unrecognized github url: ${JSON.stringify(url)}`);
+}
 function validateName(name) {
   if (!NAME_RE.test(name)) {
     throw new DoraError(ERR.VALIDATION, `invalid skill name: ${JSON.stringify(name)}`);
   }
-}
-function parseOwner(url) {
-  for (const re of [GH_HTTPS, GH_SSH]) {
-    const m = re.exec(url);
-    if (m) return m[1];
-  }
-  throw new DoraError(ERR.VALIDATION, `unrecognized github url: ${JSON.stringify(url)}`);
-}
-function validateRepoUrl(url) {
-  if (!url) throw new DoraError(ERR.VALIDATION, "empty repo url");
-  parseOwner(url);
 }
 function makeKey(skillName, owner) {
   return `${skillName}_${owner}`;
@@ -13767,11 +13710,16 @@ async function loadSkill(input) {
   validateName(input.name);
   const isTest = process.env.DORA_TEST === "1" && input.repoUrl.startsWith("file://");
   let owner;
+  let cloneUrl;
+  let subPath;
   if (isTest) {
     owner = "local";
+    cloneUrl = input.repoUrl;
   } else {
-    validateRepoUrl(input.repoUrl);
-    owner = parseOwner(input.repoUrl);
+    const parsed = parseRepoUrl(input.repoUrl);
+    owner = parsed.owner;
+    cloneUrl = parsed.cloneUrl;
+    subPath = parsed.subPath;
   }
   const key = makeKey(input.name, owner);
   const cfg = loadConfig();
@@ -13792,8 +13740,8 @@ async function loadSkill(input) {
   const target = join2(dir, key);
   const tmp = join2(dir, `tmp_${key}`);
   if (existsSync5(tmp)) rmSync(tmp, { recursive: true, force: true });
-  gitClone(input.repoUrl, tmp);
-  const primary = findPrimarySkillMd(tmp, input.name);
+  gitClone(cloneUrl, tmp);
+  const primary = findPrimarySkillMd(tmp, input.name, subPath);
   if (!primary) {
     rmSync(tmp, { recursive: true, force: true });
     throw new DoraError(ERR.NO_SKILL_MD, "repo contains no SKILL.md", { repoUrl: input.repoUrl });
@@ -13823,9 +13771,14 @@ async function loadSkill(input) {
   writeStatus(status);
   return { key, skill_md_path: resolve(join2(target, primaryRel)), cache_hit: false };
 }
-function findPrimarySkillMd(repoDir, skillName) {
+function findPrimarySkillMd(repoDir, skillName, subPath) {
   const all = walk(repoDir).filter((p) => p.endsWith(`${sep}SKILL.md`) || p === `${repoDir}${sep}SKILL.md`);
   if (all.length === 0) return null;
+  if (subPath) {
+    const subPathNorm = subPath.split("/").join(sep);
+    const exact = all.find((p) => relative(repoDir, p) === `${subPathNorm}${sep}SKILL.md`);
+    if (exact) return exact;
+  }
   const preferred = all.filter((p) => {
     const parts = p.split(sep);
     const idx = parts.lastIndexOf("SKILL.md");
@@ -14091,7 +14044,6 @@ import { join as join5 } from "node:path";
 function detectPlatform() {
   if (process.env.CLAUDE_PLUGIN_ROOT) return "claude-code";
   if (existsSync8(join5(homedir2(), ".codex", "config.toml"))) return "codex";
-  if (existsSync8(".cursor/mcp.json") || existsSync8(join5(homedir2(), ".cursor/mcp.json"))) return "cursor";
   if (existsSync8("opencode.json") || existsSync8(join5(homedir2(), ".config/opencode/opencode.json"))) return "opencode";
   return "unknown";
 }
@@ -14103,15 +14055,6 @@ function detectMcp(p) {
     } catch {
       return false;
     }
-  }
-  if (p === "cursor") {
-    for (const f of [".cursor/mcp.json", join5(homedir2(), ".cursor/mcp.json")]) {
-      try {
-        if (readFileSync4(f, "utf8").includes('"dora"')) return true;
-      } catch {
-      }
-    }
-    return false;
   }
   if (p === "opencode") {
     for (const f of ["opencode.json", join5(homedir2(), ".config/opencode/opencode.json")]) {
@@ -14183,8 +14126,6 @@ init_detect();
 // src/platforms/tool-mapping.ts
 var TOOL_MAPPINGS = {
   "claude-code": { kind: "native" },
-  cursor: { kind: "native" },
-  openclaw: { kind: "unverified" },
   "qwen-code": { kind: "unverified" },
   opencode: {
     kind: "mapping",
@@ -14235,7 +14176,7 @@ var TOOL_MAPPINGS = {
       "tool names, you may need to adapt the commands manually.",
       "",
       "To specify your platform explicitly, set: DORA_PLATFORM=<platform-id>",
-      "Supported overrides: claude-code, codex, openclaw, opencode, gemini-cli, qwen-code, cursor (manual fallback only)"
+      "Supported overrides: claude-code, codex, opencode, gemini-cli, qwen-code"
     ].join("\n")
   }
 };
@@ -14409,9 +14350,61 @@ var toolDefs = [
 
 // src/mcp/server.ts
 init_detect();
+
+// package.json
+var package_default = {
+  name: "@doraskill/dora",
+  version: "0.1.14",
+  description: "Dynamically query and load community skills for AI coding agents.",
+  type: "module",
+  bin: {
+    dora: "bin/dora.js"
+  },
+  scripts: {
+    build: "node esbuild.config.mjs",
+    test: "vitest run",
+    "test:watch": "vitest",
+    typecheck: "tsc --noEmit",
+    prepublishOnly: "npm run build && npm test"
+  },
+  files: [
+    "cli.bundle.mjs",
+    "start.bundle.mjs",
+    "bin/",
+    "hooks/",
+    "skills/",
+    "configs/",
+    ".claude-plugin/",
+    "README.md",
+    "LICENSE"
+  ],
+  dependencies: {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    minisearch: "^7.2.0",
+    "smol-toml": "^1.6.1",
+    yaml: "^2.5.0",
+    zod: "^3.23.0"
+  },
+  devDependencies: {
+    "@types/node": "^22.0.0",
+    esbuild: "^0.23.0",
+    msw: "^2.0.0",
+    typescript: "^5.5.0",
+    vitest: "^2.0.0"
+  },
+  engines: {
+    node: ">=18"
+  },
+  license: "MIT"
+};
+
+// src/index.ts
+var VERSION = package_default.version;
+
+// src/mcp/server.ts
 async function startMcpServer() {
   const server = new Server(
-    { name: "dora", version: "0.1.0" },
+    { name: "dora", version: VERSION },
     { capabilities: { tools: {} } }
   );
   const handlers2 = createHandlers({
@@ -14520,7 +14513,6 @@ supported: ${INSTALL_TARGETS2.join(", ")}
       return runInstall2(result.target, argv.slice(2));
     }
     case "install:codex":
-    case "install:cursor":
     case "install:opencode": {
       const { runInstall: runInstall2 } = await Promise.resolve().then(() => (init_install(), install_exports));
       return runInstall2(cmd.replace("install:", ""), argv.slice(1));
@@ -14531,7 +14523,8 @@ supported: ${INSTALL_TARGETS2.join(", ")}
     }
     case "--version":
     case "-v":
-      process.stdout.write("dora 0.1.0\n");
+      process.stdout.write(`dora ${VERSION}
+`);
       return 0;
     case "--help":
     case "-h":
