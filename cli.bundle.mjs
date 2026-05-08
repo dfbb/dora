@@ -14354,7 +14354,7 @@ init_detect();
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.14",
+  version: "0.1.15",
   description: "Dynamically query and load community skills for AI coding agents.",
   type: "module",
   bin: {
@@ -14376,6 +14376,12 @@ var package_default = {
     "configs/",
     ".claude-plugin/",
     "README.md",
+    "README.zh.md",
+    "README.ja.md",
+    "README.kr.md",
+    "README.fr.md",
+    "README.es.md",
+    "README.de.md",
     "LICENSE"
   ],
   dependencies: {
