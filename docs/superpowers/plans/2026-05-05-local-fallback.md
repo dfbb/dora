@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** When `dora_query`'s remote engine returns `ENGINE_UNREACHABLE` or `HTTP_ERROR(status≥500||status===429)`, automatically fall back to in-memory BM25 search (via `minisearch`) over the bundled `asset/skillsh.json.gz` catalog (9,465 skills).
+**Goal:** When `dora_query`'s remote engine returns `ENGINE_UNREACHABLE` or `HTTP_ERROR(status≥500||status===429)`, automatically fall back to in-memory BM25 search (via `minisearch`) over the bundled `asset/skilldb.json.gz` catalog (9,465 skills).
 
 **Architecture:** New `src/core/local-query.ts` owns data load + BM25 index + query. `src/mcp/tools.ts#dora_query` is the orchestration layer that decides when to fall back, injects `source: "remote" | "local"` into responses, and synthesizes combined errors. `src/core/query.ts` is unchanged. The catalog is embedded into the esbuild bundle as binary; tests inject an alternate fixture via `DORA_ASSET_DIR`.
 
@@ -20,7 +20,7 @@
 - `src/diagnostics/checks/local-index.ts` — calls `loadSkillsCorpus()` + `buildIndex()`, returns `CheckResult`.
 - `tests/core/local-query.test.ts` — unit tests for load/map/index/query.
 - `tests/mcp/tools-fallback.test.ts` — isolated integration tests for fallback orchestration; uses top-level `vi.mock("@/core/local-query", ...)` so existing `tests/mcp/tools.test.ts` is unaffected.
-- `tests/fixtures/skillsh-mini.json` and `tests/fixtures/skillsh-mini.json.gz` — 10-row fixture catalog.
+- `tests/fixtures/skilldb-mini.json` and `tests/fixtures/skilldb-mini.json.gz` — 10-row fixture catalog.
 - `tests/fixtures/build-mini-fixture.mjs` — small node script that gzips the json into the gz; committed so the fixture is reproducible.
 
 **Modified files:**
@@ -170,13 +170,13 @@ git commit -m "build: add minisearch dependency for local BM25 fallback"
 ## Task 5: Build the test fixture (10-row mini catalog)
 
 **Files:**
-- Create: `tests/fixtures/skillsh-mini.json`
+- Create: `tests/fixtures/skilldb-mini.json`
 - Create: `tests/fixtures/build-mini-fixture.mjs`
-- Create: `tests/fixtures/skillsh-mini.json.gz`
+- Create: `tests/fixtures/skilldb-mini.json.gz`
 
 - [ ] **Step 1: Write the source JSON**
 
-Create `tests/fixtures/skillsh-mini.json`. The shape mirrors `asset/skillsh.json` but with hand-picked rows that exercise every test case in Task 8. Note: row 6 omits all three `security_*` fields to test the "missing fields → warn" branch.
+Create `tests/fixtures/skilldb-mini.json`. The shape mirrors `asset/skilldb.json` but with hand-picked rows that exercise every test case in Task 8. Note: row 6 omits all three `security_*` fields to test the "missing fields → warn" branch.
 
 ```json
 {
@@ -325,20 +325,20 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(here, "skillsh-mini.json"));
-writeFileSync(join(here, "skillsh-mini.json.gz"), gzipSync(src));
-console.log("wrote skillsh-mini.json.gz");
+const src = readFileSync(join(here, "skilldb-mini.json"));
+writeFileSync(join(here, "skilldb-mini.json.gz"), gzipSync(src));
+console.log("wrote skilldb-mini.json.gz");
 ```
 
 - [ ] **Step 3: Run the script to produce the .gz**
 
 Run: `node tests/fixtures/build-mini-fixture.mjs`
-Expected: prints `wrote skillsh-mini.json.gz`. Verify with `ls -la tests/fixtures/skillsh-mini.json.gz` — file exists and is non-empty.
+Expected: prints `wrote skilldb-mini.json.gz`. Verify with `ls -la tests/fixtures/skilldb-mini.json.gz` — file exists and is non-empty.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add tests/fixtures/skillsh-mini.json tests/fixtures/build-mini-fixture.mjs tests/fixtures/skillsh-mini.json.gz
+git add tests/fixtures/skilldb-mini.json tests/fixtures/build-mini-fixture.mjs tests/fixtures/skilldb-mini.json.gz
 git commit -m "test: add 10-row mini fixture for local fallback tests"
 ```
 
@@ -406,14 +406,14 @@ import { fileURLToPath } from "node:url";
 import { ERR } from "@/core/errors";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const FIXTURE_GZ = join(here, "..", "fixtures", "skillsh-mini.json.gz");
+const FIXTURE_GZ = join(here, "..", "fixtures", "skilldb-mini.json.gz");
 
 let work: string;
 const orig = { ...process.env };
 
 beforeEach(() => {
   work = mkdtempSync(join(tmpdir(), "dora-local-"));
-  copyFileSync(FIXTURE_GZ, join(work, "skillsh.json.gz"));
+  copyFileSync(FIXTURE_GZ, join(work, "skilldb.json.gz"));
   process.env.DORA_ASSET_DIR = work;
 });
 
@@ -484,7 +484,7 @@ describe("local-query: load + map", () => {
 
 describe("local-query: errors", () => {
   it("throws LOCAL_INDEX_BROKEN when asset file is missing", async () => {
-    rmSync(join(work, "skillsh.json.gz"));
+    rmSync(join(work, "skilldb.json.gz"));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -494,7 +494,7 @@ describe("local-query: errors", () => {
   });
 
   it("throws LOCAL_INDEX_BROKEN on gunzip failure", async () => {
-    writeFileSync(join(work, "skillsh.json.gz"), Buffer.from("not a gzip"));
+    writeFileSync(join(work, "skilldb.json.gz"), Buffer.from("not a gzip"));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -504,7 +504,7 @@ describe("local-query: errors", () => {
   });
 
   it("throws LOCAL_INDEX_BROKEN on JSON parse failure", async () => {
-    writeFileSync(join(work, "skillsh.json.gz"), gzipSync(Buffer.from("{not json")));
+    writeFileSync(join(work, "skilldb.json.gz"), gzipSync(Buffer.from("{not json")));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -514,7 +514,7 @@ describe("local-query: errors", () => {
   });
 
   it("throws LOCAL_INDEX_BROKEN on schema_version mismatch", async () => {
-    writeFileSync(join(work, "skillsh.json.gz"), gzipSync(Buffer.from(JSON.stringify({ schema_version: 99, skills: [] }))));
+    writeFileSync(join(work, "skilldb.json.gz"), gzipSync(Buffer.from(JSON.stringify({ schema_version: 99, skills: [] }))));
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     __resetLocalIndexForTest();
     await expect(localQuery("anything", 5)).rejects.toMatchObject({
@@ -528,7 +528,7 @@ describe("local-query: singleton", () => {
   it("reuses the index across calls (does not re-read file)", async () => {
     const { localQuery } = await import("@/core/local-query");
     await localQuery("pytest", 5);
-    rmSync(join(work, "skillsh.json.gz"));
+    rmSync(join(work, "skilldb.json.gz"));
     const r2 = await localQuery("pytest", 5);
     expect(r2.skills[0]!.name).toBe("pytest-helper");
   });
@@ -537,7 +537,7 @@ describe("local-query: singleton", () => {
     const { localQuery, __resetLocalIndexForTest } = await import("@/core/local-query");
     await localQuery("pytest", 5);
     __resetLocalIndexForTest();
-    rmSync(join(work, "skillsh.json.gz"));
+    rmSync(join(work, "skilldb.json.gz"));
     await expect(localQuery("pytest", 5)).rejects.toMatchObject({
       code: ERR.LOCAL_INDEX_BROKEN,
     });
@@ -560,7 +560,7 @@ import MiniSearch from "minisearch";
 import type { SkillCandidate, QueryResult } from "./query";
 import { DoraError, ERR } from "./errors";
 import type { SecurityLevel } from "./types";
-import embeddedSkillshGz from "../../asset/skillsh.json.gz";
+import embeddedSkillshGz from "../../asset/skilldb.json.gz";
 
 export type LocalQueryResult = QueryResult & { source: "local" };
 
@@ -601,7 +601,7 @@ async function loadEmbeddedAsset(): Promise<Uint8Array> {
   try {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
-    return readFileSync(join(dir, "skillsh.json.gz"));
+    return readFileSync(join(dir, "skilldb.json.gz"));
   } catch (e) {
     throw new DoraError(ERR.LOCAL_INDEX_BROKEN, "asset read failed", {
       reason: "asset_read_failed",
@@ -1128,7 +1128,7 @@ asset/
 
 - [ ] **Step 2: Verify `npm pack --dry-run` does not include `asset/`**
 
-Run: `npm pack --dry-run 2>&1 | grep -E 'asset/|skillsh' || echo "asset not in pack"`
+Run: `npm pack --dry-run 2>&1 | grep -E 'asset/|skilldb' || echo "asset not in pack"`
 Expected: prints `asset not in pack`.
 
 - [ ] **Step 3: Commit**
@@ -1142,7 +1142,7 @@ git commit -m "build: defensively ignore asset/ in npm publish"
 
 ## Task 12: Smoke-test the embedded asset path with a real bundle
 
-This task verifies that `import "../../asset/skillsh.json.gz"` works through the esbuild bundle (i.e., the `.gz` loader is wired correctly and produces a usable `Uint8Array` at runtime). We don't add a permanent test; we run a one-off check.
+This task verifies that `import "../../asset/skilldb.json.gz"` works through the esbuild bundle (i.e., the `.gz` loader is wired correctly and produces a usable `Uint8Array` at runtime). We don't add a permanent test; we run a one-off check.
 
 **Files:** none modified.
 

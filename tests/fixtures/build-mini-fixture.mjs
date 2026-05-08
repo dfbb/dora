@@ -4,6 +4,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(here, "skillsh-mini.json"));
-writeFileSync(join(here, "skillsh-mini.json.gz"), gzipSync(src));
-console.log("wrote skillsh-mini.json.gz");
+const src = readFileSync(join(here, "skilldb-mini.json"));
+writeFileSync(join(here, "skilldb-mini.json.gz"), gzipSync(src));
+console.log("wrote skilldb-mini.json.gz");

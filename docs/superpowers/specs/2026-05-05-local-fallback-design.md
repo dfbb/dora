@@ -5,7 +5,7 @@
 
 ## 概述
 
-当 `dora_query` 调用远程引擎失败(网络不可达或服务返回 5xx/429)时,自动降级到本地 BM25 全文搜索,基于嵌入在 bundle 内的 `asset/skillsh.json.gz`(9,465 条 skill 快照,压缩 1.8MB / 解压 11.9MB)返回候选结果。降级对调用方透明,仅在返回 JSON 中加 `source: "local"` 字段标识。
+当 `dora_query` 调用远程引擎失败(网络不可达或服务返回 5xx/429)时,自动降级到本地 BM25 全文搜索,基于嵌入在 bundle 内的 `asset/skilldb.json.gz`(9,465 条 skill 快照,压缩 1.8MB / 解压 11.9MB)返回候选结果。降级对调用方透明,仅在返回 JSON 中加 `source: "local"` 字段标识。
 
 ## 动机
 
@@ -49,7 +49,7 @@ package.json               [改动]   +minisearch
 tests/core/local-query.test.ts       [新增]
 tests/mcp/tools-fallback.test.ts     [新增]   隔离的降级集成测试(顶层 vi.mock)
 tests/mcp/tools.test.ts              [不变]   现有用例不动
-tests/fixtures/skillsh-mini.json.gz  [新增]   10 条精选 fixture(明细见 Fixture 节)
+tests/fixtures/skilldb-mini.json.gz  [新增]   10 条精选 fixture(明细见 Fixture 节)
 ```
 
 ### 职责分离
@@ -129,14 +129,14 @@ function shouldFallback(e: unknown): boolean {
 
 ## 字段映射
 
-`asset/skillsh.json` 单条 → `SkillCandidate`:
+`asset/skilldb.json` 单条 → `SkillCandidate`:
 
-| skillsh 字段 | SkillCandidate 字段 | 备注 |
+| skilldb 字段 | SkillCandidate 字段 | 备注 |
 |---|---|---|
 | `name` | `name` | 直接 |
 | `github_url` | `url` | **必须用 `github_url`(仓库根),不是 `skill_url`**——`url` 会被 `dora_load` 当 `repo_url` 传给 `validateRepoUrl`,后者只接受 GitHub 仓库根 URL(见 `src/core/validate.ts`)。asset 中 8,883/9,465 条 `skill_url` 是 `/tree/...` 子路径,会校验失败 |
 | `skill_url` | `skill_path_url` | 保留供展示/定位子目录,不参与 dora_load |
-| `summary` | `description_en` | skillsh 没有 `description`,`summary` 是描述 |
+| `summary` | `description_en` | skilldb 没有 `description`,`summary` 是描述 |
 | `github_star` | `github_stars` | 单复数改名 |
 | `author` | `author` | 直接 |
 | `source_slug` | `source_slug` | 索引字段,也用于组合 ID |
@@ -252,7 +252,7 @@ async function localQuery(query: string, topK: number): Promise<QueryResult & { 
 `local-query.ts` 内部分两个函数,**测试边界明确化**:
 
 ```ts
-import embeddedSkillshGz from "../../asset/skillsh.json.gz";
+import embeddedSkillshGz from "../../asset/skilldb.json.gz";
 // 类型声明放 src/types/assets.d.ts(必须在 tsconfig.include 的 src/**/* 之内,
 // 否则 tsc --noEmit 会报找不到模块):
 //   declare module "*.gz" { const x: Uint8Array; export default x; }
@@ -261,10 +261,10 @@ import embeddedSkillshGz from "../../asset/skillsh.json.gz";
 async function loadEmbeddedAsset(): Promise<Uint8Array> {
   const dir = process.env.DORA_ASSET_DIR;
   if (dir) {
-    // 测试 / 排障专用:从外部目录读 skillsh.json.gz
+    // 测试 / 排障专用:从外部目录读 skilldb.json.gz
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
-    return readFileSync(join(dir, "skillsh.json.gz"));
+    return readFileSync(join(dir, "skilldb.json.gz"));
   }
   return embeddedSkillshGz;
 }
@@ -328,7 +328,7 @@ ERR.LOCAL_INDEX_BROKEN = "local_index_broken"
 
 ### `tests/core/local-query.test.ts`(新增)
 
-用一个 **10 条**的 fixture(`tests/fixtures/skillsh-mini.json.gz`,见下表)替代真 1.8MB asset,通过 `DORA_ASSET_DIR` 环境变量切换。每个用例 `beforeEach` 调用 `__resetLocalIndexForTest()` 清单例,避免污染。
+用一个 **10 条**的 fixture(`tests/fixtures/skilldb-mini.json.gz`,见下表)替代真 1.8MB asset,通过 `DORA_ASSET_DIR` 环境变量切换。每个用例 `beforeEach` 调用 `__resetLocalIndexForTest()` 清单例,避免污染。
 
 | # | 用例 | 验证点 |
 |---|---|---|
@@ -370,7 +370,7 @@ ERR.LOCAL_INDEX_BROKEN = "local_index_broken"
 
 ### Fixture
 
-`tests/fixtures/skillsh-mini.json` → 手写 **10 条** → gzip 提交。10 条比 6 条多余,但 BM25 排序对 token 分布敏感,fixture 太小排序断言会脆;10 条给排序用例(name boost vs description、AND、prefix、fuzzy)留足"噪声"。
+`tests/fixtures/skilldb-mini.json` → 手写 **10 条** → gzip 提交。10 条比 6 条多余,但 BM25 排序对 token 分布敏感,fixture 太小排序断言会脆;10 条给排序用例(name boost vs description、AND、prefix、fuzzy)留足"噪声"。
 
 | # | name | summary 关键词 | snyk/socket/trusthub | 用途 |
 |---|---|---|---|---|
