@@ -1,5 +1,12 @@
 import { build } from "esbuild";
-import { chmodSync } from "node:fs";
+import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+
+// Sync version from package.json into plugin manifests
+const { version } = JSON.parse(readFileSync("package.json", "utf8"));
+for (const path of [".claude-plugin/marketplace.json", ".claude-plugin/plugin.json"]) {
+  const text = readFileSync(path, "utf8");
+  writeFileSync(path, text.replace(/"version": "[^"]*"/g, `"version": "${version}"`));
+}
 
 const SHARED = {
   bundle: true,
