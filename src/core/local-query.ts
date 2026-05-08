@@ -3,7 +3,7 @@ import MiniSearch from "minisearch";
 import type { SkillCandidate, QueryResult } from "./query";
 import { DoraError, ERR } from "./errors";
 import type { SecurityLevel } from "./types";
-import embeddedSkillshGz from "../../asset/skilldb.json.gz";
+import embeddedSkilldbGz from "../../asset/skilldb.json.gz";
 
 export type LocalQueryResult = QueryResult & { source: "local" };
 
@@ -40,7 +40,7 @@ export function __resetLocalIndexForTest(): void {
 
 async function loadEmbeddedAsset(): Promise<Uint8Array> {
   const dir = process.env.DORA_ASSET_DIR;
-  if (!dir) return embeddedSkillshGz;
+  if (!dir) return embeddedSkilldbGz;
   try {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
