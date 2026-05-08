@@ -1,10 +1,23 @@
 # dora
 
-> Dynamically query and load community skills for AI coding agents.
+[中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.kr.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md)
 
-## What it does
+> A community skill marketplace for AI coding agents — safe, zero-install, offline-ready.
 
-When the user gives you a task you don't already know how to do, dora queries a public skill engine, picks a matching skill, clones it from GitHub, and loads its `SKILL.md` into your context. Cache is on disk; lookups are TTL'd; the agent never holds the full skill catalog in context. When the remote skill engine is unreachable or returns 5xx/429, dora automatically falls back to an in-memory BM25 search over a bundled snapshot of ~9.5k community skills.
+## Why dora?
+
+- 🔒 **GitHub-only downloads**: Every skill is publicly auditable. Each has a security level (`safe` / `warn` / `danger`) — set your threshold and dora filters automatically.
+- ⚡ **Zero token overhead**: Skills load on demand. They don't occupy your context window until you actually need them.
+- 📦 **No manual installs**: One command to search and clone — no pre-installing skills.
+- 🌐 **Offline-ready**: A bundled catalog of ~9,500 skills ships with dora. If the remote engine is unreachable, dora falls back automatically.
+
+## How it works
+
+1. **Query** — Describe your task; dora queries [skills.sh](https://skills.sh) for matching community skills
+2. **Download** — The matched skill is cloned from its **GitHub repository** into a local cache
+3. **Security check** — Each skill has a security level (`safe` / `warn` / `danger`); dora filters by your configured threshold
+4. **Execute** — The skill's `SKILL.md` is loaded into the AI's context and the agent follows its instructions
+5. **Offline fallback** — If `api.doraskill.org` is unreachable, dora automatically switches to a local BM25 index (~9,500 skills, bundled — no download needed)
 
 ## Install
 
@@ -111,6 +124,18 @@ When `dora_load` returns a non-null `execution_context`, the agent outputs it be
 
 Supported platforms: `claude-code`, `codex`, `cursor`, `opencode`, `gemini-cli`, `qwen-code`, `openclaw`.
 
+## Offline Fallback
+
+`dora_query` automatically falls back to a local catalog when the remote engine is unreachable.
+
+- **Triggers:** `engine_unreachable` (network/timeout) or `http_error` with status ≥ 500 or status === 429. Other 4xx errors are returned to the caller as-is so configuration/auth issues are not hidden.
+- **Force local:** Pass `local_only: true` to `dora_query` (or use `/dora:dora local: <task>`) to skip the remote engine entirely.
+- **Catalog:** ~9,465 skills, bundled into the npm package (no extra download).
+- **Result shape:** identical to remote (`{skills: [...]}`) plus a `source: "remote" | "local"` field on the returned JSON.
+- **Diagnostics:** `dora_doctor` includes a `local index` check.
+
+Empty results from the remote engine (`empty_candidates`) are NOT a fallback trigger — if the remote service explicitly says no match, dora trusts that answer.
+
 ## Configuration
 
 `~/.dora/config.yaml` (or `./.dora/config.yaml` for project-local):
@@ -144,18 +169,6 @@ dora install [platform]        Auto-detect or specify target platform
 - Status: `~/.dora/skills/status.yaml`
 - Query log: `~/.dora/query-log.jsonl`
 - Config: `~/.dora/config.yaml` (not deleted by purge)
-
-## Offline Fallback
-
-`dora_query` automatically falls back to a local catalog when the remote engine is unreachable.
-
-- **Triggers:** `engine_unreachable` (network/timeout) or `http_error` with status ≥ 500 or status === 429. Other 4xx errors are returned to the caller as-is so configuration/auth issues are not hidden.
-- **Force local:** Pass `local_only: true` to `dora_query` (or use `/dora:dora local: <task>`) to skip the remote engine entirely.
-- **Catalog:** ~9,465 skills, bundled into the npm package (no extra download).
-- **Result shape:** identical to remote (`{skills: [...]}`) plus a `source: "remote" | "local"` field on the returned JSON.
-- **Diagnostics:** `dora_doctor` includes a `local index` check.
-
-Empty results from the remote engine (`empty_candidates`) are NOT a fallback trigger — if the remote service explicitly says no match, dora trusts that answer.
 
 ## License
 
