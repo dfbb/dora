@@ -80,7 +80,7 @@ async function main(): Promise<number> {
     }
     case "--version":
     case "-v":
-      process.stdout.write("dora 0.1.0\n"); return 0;
+      process.stdout.write("dora 0.1.13\n"); return 0;
     case "--help":
     case "-h":
     case undefined:
