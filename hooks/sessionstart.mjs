@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { readdirSync, statSync, rmSync } from "node:fs";
 import { join } from "node:path";
 

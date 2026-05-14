@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-#!/usr/bin/env node
 
 // hooks/sessionstart.mjs
 import { readdirSync, statSync, rmSync } from "node:fs";

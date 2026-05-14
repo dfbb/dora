@@ -13103,7 +13103,7 @@ var toolDefs = [
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.17",
+  version: "0.1.18",
   description: "Dynamically query and load community skills for AI coding agents.",
   type: "module",
   bin: {
