@@ -2,7 +2,7 @@
 
 [English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.kr.md) · [Français](README.fr.md) · [Español](README.es.md) · Deutsch
 
-> Ein Community-Skill-Marktplatz für KI-Coding-Agenten — sicher, ohne Installation, offline verfügbar.
+> Entdecke und probiere automatisch neue Community-Skills aus, ohne deinen Workflow zu unterbrechen.
 
 ## Warum dora?
 

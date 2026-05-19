@@ -2,7 +2,7 @@
 
 [中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.kr.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md)
 
-> A community skill marketplace for AI coding agents — safe, zero-install, offline-ready.
+> Automatically discover and try new community skills without disrupting your workflow.
 
 ## Why dora?
 

@@ -2,7 +2,7 @@
 
 [English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · 한국어 · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md)
 
-> AI 코딩 에이전트를 위한 커뮤니티 스킬 마켓플레이스 — 안전하고, 설치 없이, 오프라인에서도 사용 가능.
+> 워크플로우를 방해하지 않고 새로운 커뮤니티 스킬을 자동으로 발견하고 사용해 보세요.
 
 ## 왜 dora인가요?
 

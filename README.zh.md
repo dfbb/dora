@@ -2,7 +2,7 @@
 
 [English](README.md) · 中文 · [日本語](README.ja.md) · [한국어](README.kr.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md)
 
-> 给 AI coding agent 用的社区技能市场——安全、免安装、离线可用。
+> 自动发现并尝试新的社区技能，不打断你的工作流。
 
 ## 为什么用 dora？
 

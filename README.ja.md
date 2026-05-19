@@ -2,7 +2,7 @@
 
 [English](README.md) · [中文](README.zh.md) · 日本語 · [한국어](README.kr.md) · [Français](README.fr.md) · [Español](README.es.md) · [Deutsch](README.de.md)
 
-> AIコーディングエージェント向けのコミュニティスキルマーケットプレイス — 安全・インストール不要・オフライン対応。
+> ワークフローを中断せずに、新しいコミュニティスキルを自動的に発見して試せます。
 
 ## なぜ dora を使うのか？
 

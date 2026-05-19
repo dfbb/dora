@@ -2,7 +2,7 @@
 
 [English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.kr.md) · Français · [Español](README.es.md) · [Deutsch](README.de.md)
 
-> Un marketplace de compétences communautaires pour les agents IA — sûr, sans installation, disponible hors ligne.
+> Découvrez et essayez automatiquement de nouvelles compétences communautaires sans interrompre votre flux de travail.
 
 ## Pourquoi dora ?
 
