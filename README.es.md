@@ -50,7 +50,7 @@ npm install -g @doraskill/dora
 dora install codex
 ```
 
-Fusiona el servidor MCP en `~/.codex/config.toml` (fusión TOML profunda, copia de seguridad `.bak`), el hook SessionStart en `~/.codex/hooks.json`, y agrega el enrutamiento a `~/.codex/AGENTS.md`.
+Fusiona el servidor MCP en `~/.codex/config.toml` (fusión TOML profunda, copia de seguridad `.bak`) y agrega el enrutamiento a `~/.codex/AGENTS.md`.
 
 </details>
 

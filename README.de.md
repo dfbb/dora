@@ -50,7 +50,7 @@ npm install -g @doraskill/dora
 dora install codex
 ```
 
-Führt den MCP-Server in `~/.codex/config.toml` zusammen (TOML-Deep-Merge, `.bak`-Backup), SessionStart-Hook in `~/.codex/hooks.json`, und hängt Routing an `~/.codex/AGENTS.md` an.
+Führt den MCP-Server in `~/.codex/config.toml` zusammen (TOML-Deep-Merge, `.bak`-Backup) und hängt Routing an `~/.codex/AGENTS.md` an.
 
 </details>
 

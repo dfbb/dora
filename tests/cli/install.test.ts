@@ -53,7 +53,7 @@ describe("install:codex (toml-merge + append-if-missing + backup)", () => {
     runInstall("codex", []);
     expect(existsSync(join(work, ".codex/config.toml"))).toBe(true);
     expect(existsSync(join(work, ".codex/AGENTS.md"))).toBe(true);
-    expect(existsSync(join(work, ".codex/hooks.json"))).toBe(true);
+    expect(existsSync(join(work, ".codex/hooks.json"))).toBe(false);
     const toml = readFileSync(join(work, ".codex/config.toml"), "utf8");
     expect(toml).toContain("dora");
   });
