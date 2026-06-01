@@ -50,7 +50,7 @@ npm install -g @doraskill/dora
 dora install codex
 ```
 
-将 MCP server 合并写入 `~/.codex/config.toml`（TOML 深度合并，自动备份 `.bak`），SessionStart hook 写入 `~/.codex/hooks.json`，并将路由规则追加到 `~/.codex/AGENTS.md`。
+将 MCP server 合并写入 `~/.codex/config.toml`（TOML 深度合并，自动备份 `.bak`），并将路由规则追加到 `~/.codex/AGENTS.md`。
 
 </details>
 

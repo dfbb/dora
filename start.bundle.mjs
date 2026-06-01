@@ -12767,7 +12767,7 @@ function detectHook(p) {
   if (p === "claude-code") return true;
   if (p === "codex") {
     try {
-      return readFileSync4(join5(homedir2(), ".codex", "hooks.json"), "utf8").includes("dora hook codex");
+      return readFileSync4(join5(homedir2(), ".codex", "AGENTS.md"), "utf8").includes("<!-- dora:routing -->");
     } catch {
       return false;
     }
@@ -12779,12 +12779,13 @@ async function checkPlatform() {
   if (platform === "unknown") {
     return {
       mcp: { name: "MCP server registered", status: "warn", detail: "no platform detected" },
-      hook: { name: "SessionStart hook installed", status: "warn", detail: "no platform detected" }
+      hook: { name: "Routing installed", status: "warn", detail: "no platform detected" }
     };
   }
+  const routingName = platform === "codex" ? "Routing installed (codex, via AGENTS.md)" : `SessionStart hook installed (${platform})`;
   return {
     mcp: { name: `MCP server registered (${platform})`, status: detectMcp(platform) ? "pass" : "fail" },
-    hook: { name: `SessionStart hook installed (${platform})`, status: detectHook(platform) ? "pass" : "warn", detail: detectHook(platform) ? void 0 : "optional on this platform" }
+    hook: { name: routingName, status: detectHook(platform) ? "pass" : "warn", detail: detectHook(platform) ? void 0 : "optional on this platform" }
   };
 }
 
@@ -13103,8 +13104,8 @@ var toolDefs = [
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.18",
-  description: "Dynamically query and load community skills for AI coding agents.",
+  version: "0.1.19",
+  description: "Automatically discover and try new community skills without disrupting your workflow.",
   type: "module",
   bin: {
     dora: "bin/dora.js"

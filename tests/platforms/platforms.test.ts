@@ -10,10 +10,10 @@ describe("codex adapter", () => {
     const out = codex.sessionStartHook({ hook_event_name: "SessionStart" });
     expect(out.hookSpecificOutput.additionalContext).toMatch(/dora_query/);
   });
-  it("install files include hooks.json + AGENTS.md", () => {
+  it("install files exclude hooks.json (routing via AGENTS.md only)", () => {
     const files = codex.installFiles();
     const paths = files.map((f) => f.path);
-    expect(paths).toContain("~/.codex/hooks.json");
+    expect(paths).not.toContain("~/.codex/hooks.json");
     expect(paths).toContain("~/.codex/AGENTS.md");
   });
   it("AGENTS.md uses append-if-missing with marker", () => {

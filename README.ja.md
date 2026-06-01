@@ -50,7 +50,7 @@ npm install -g @doraskill/dora
 dora install codex
 ```
 
-MCPサーバーを `~/.codex/config.toml` にマージ（TOMLディープマージ、`.bak` バックアップ）、SessionStartフックを `~/.codex/hooks.json` に追加、ルーティング設定を `~/.codex/AGENTS.md` に追記します。
+MCPサーバーを `~/.codex/config.toml` にマージ（TOMLディープマージ、`.bak` バックアップ）、ルーティング設定を `~/.codex/AGENTS.md` に追記します。
 
 </details>
 

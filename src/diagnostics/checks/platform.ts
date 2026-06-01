@@ -27,7 +27,8 @@ function detectMcp(p: string): boolean {
 function detectHook(p: string): boolean {
   if (p === "claude-code") return true;
   if (p === "codex") {
-    try { return readFileSync(join(homedir(), ".codex", "hooks.json"), "utf8").includes("dora hook codex"); } catch { return false; }
+    // Codex routes via ~/.codex/AGENTS.md (no SessionStart hook is installed).
+    try { return readFileSync(join(homedir(), ".codex", "AGENTS.md"), "utf8").includes("<!-- dora:routing -->"); } catch { return false; }
   }
   return false;
 }
@@ -37,11 +38,12 @@ export async function checkPlatform(): Promise<{ mcp: CheckResult; hook: CheckRe
   if (platform === "unknown") {
     return {
       mcp: { name: "MCP server registered", status: "warn", detail: "no platform detected" },
-      hook: { name: "SessionStart hook installed", status: "warn", detail: "no platform detected" },
+      hook: { name: "Routing installed", status: "warn", detail: "no platform detected" },
     };
   }
+  const routingName = platform === "codex" ? "Routing installed (codex, via AGENTS.md)" : `SessionStart hook installed (${platform})`;
   return {
     mcp: { name: `MCP server registered (${platform})`, status: detectMcp(platform) ? "pass" : "fail" },
-    hook: { name: `SessionStart hook installed (${platform})`, status: detectHook(platform) ? "pass" : "warn", detail: detectHook(platform) ? undefined : "optional on this platform" },
+    hook: { name: routingName, status: detectHook(platform) ? "pass" : "warn", detail: detectHook(platform) ? undefined : "optional on this platform" },
   };
 }

@@ -50,7 +50,7 @@ npm install -g @doraskill/dora
 dora install codex
 ```
 
-MCP 서버를 `~/.codex/config.toml`에 병합(TOML 딥 머지, `.bak` 백업), SessionStart 훅을 `~/.codex/hooks.json`에 추가, 라우팅을 `~/.codex/AGENTS.md`에 추가합니다.
+MCP 서버를 `~/.codex/config.toml`에 병합(TOML 딥 머지, `.bak` 백업), 라우팅을 `~/.codex/AGENTS.md`에 추가합니다.
 
 </details>
 
