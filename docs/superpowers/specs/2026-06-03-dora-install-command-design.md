@@ -35,19 +35,26 @@ dora 的「内部安装」是把整个 GitHub 仓库 `git clone` 到 `~/.dora/sk
 
 ## 平台目录映射
 
-集中表,放在 `src/platforms`,与现有 `INSTALL_TARGETS` 同风格:
+集中表 + resolver,放在 `src/platforms`,与现有 `INSTALL_TARGETS` 同风格。映射存「相对 home 的子路径」,由 resolver 拼接 home,**resolver 接受可注入的环境/home,便于测试**:
 
 ```
-PLATFORM_SKILLS_DIR = {
-  "claude-code": "~/.claude/skills",
-  "codex":       "~/.codex/skills",
-  "opencode":    "~/.config/opencode/skills",
-  "gemini-cli":  "~/.gemini/skills",
-  "qwen-code":   "~/.qwen/skills",
+PLATFORM_SKILLS_SUBDIR = {
+  "claude-code": ".claude/skills",
+  "codex":       ".codex/skills",
+  "opencode":    ".config/opencode/skills",
+  "gemini-cli":  ".gemini/skills",
+  "qwen-code":   ".qwen/skills",
 }
+
+// 测试可通过 env 注入临时 home,避免写真实 ~/.claude 等
+resolvePlatformSkillsDir(platform, env = process.env) -> string | null
+  - home = env.DORA_TEST_HOME ?? homedir()
+  - sub = PLATFORM_SKILLS_SUBDIR[platform]
+  - 不在映射表 -> 返回 null(调用方转为 platform_unknown)
+  - 返回 join(home, sub)
 ```
 
-`~` 用 `homedir()` 展开。
+注:`DORA_TEST_HOME` 仅用于测试隔离平台目标目录,与现有 `DORA_HOME`(缓存根)分开,避免互相干扰。
 
 ## 名称解析
 
@@ -74,25 +81,43 @@ PLATFORM_SKILLS_DIR = {
 ## 核心搬运逻辑(`src/core/install.ts`)
 
 ```
-installSkill({ name, platform? }) ->
+installSkill({ name, platform? }, env = process.env) ->
   1. 解析得到 cache 条目 entry 和 key(见「名称解析」)
-  2. 解析 platform -> targetBaseDir(unknown 则返回 platform_unknown)
-  3. srcSkillDir = dirname(<DORA_HOME>/skills/<key>/<entry.primary_skill_path>)
+  2. 解析 platform -> targetBaseDir = resolvePlatformSkillsDir(platform, env)
+     // 为 null(unknown 或不在映射表) -> 返回 { error: "platform_unknown" }
+  3. cacheRoot = <DORA_HOME>/skills/<key>
+     srcSkillDir = dirname(join(cacheRoot, entry.primary_skill_path))
      // SKILL.md 所在那层目录,这是"修正层次"的关键
-  4. targetDir = <targetBaseDir>/<entry.skill_name>/
+     // 安全校验:resolve(srcSkillDir) 必须以 resolve(cacheRoot) + sep 开头(或等于 cacheRoot),
+     //          且 join(srcSkillDir, "SKILL.md") 必须是普通文件(statSync().isFile())。
+     //          任一不满足 -> 返回 { error: "invalid_skill_path" },不动任何东西。
+  4. targetDir = join(targetBaseDir, entry.skill_name)
   5. 若 targetDir 已存在 -> 返回 { skipped: true, reason: "exists" },不动任何东西
-  6. 原子拷贝:先递归拷到 <targetBaseDir>/.tmp_<name>_<pid>/,再 rename 到 targetDir
-  7. 校验 targetDir/SKILL.md 存在(拷贝成功的兜底检查)
-  8. 校验通过后:rmSync(<DORA_HOME>/skills/<key>/),并从 status.yaml 删 entry
+  6. mkdirSync(targetBaseDir, { recursive: true })   // 首次安装时平台目录可能不存在
+  7. tmpDir = mkdtempSync(join(targetBaseDir, ".dora-install-"))  // 唯一临时目录
+     try {
+       递归拷贝 srcSkillDir/* -> tmpDir/
+       校验 join(tmpDir, "SKILL.md") 存在(拷贝成功的兜底检查)
+       renameSync(tmpDir, targetDir)   // 同基目录,原子
+     } finally {
+       若 tmpDir 仍存在(rename 未发生或抛错) -> rmSync(tmpDir, { recursive, force })
+     }
+  8. 移除缓存(可恢复顺序):
+       a. 先从 status.yaml 删 entry 并 writeStatus()
+       b. 再 rmSync(cacheRoot, { recursive: true, force: true })
+     // 若 (b) 失败:status 已不指向它,缓存目录沦为 orphan(listSkills 已能识别 orphan),
+     //   不会出现"status 指向不存在目录"的不一致。
   9. 返回 { ok: true, skill_name, platform, source_path, target_path, file_count, cache_removed: true }
 ```
 
 关键点:
 
-- 第 3 步用 `primary_skill_path` 的父目录,天然解决「SKILL.md 埋在深层子目录」的问题,落地后 `<targetBaseDir>/<name>/SKILL.md` 一定在顶层。
-- 第 8 步在第 7 步校验通过后才执行,保证「先确认装好、再删缓存」,move 不会丢数据。
-- 复用现有 `skillsDir()` / `resolveDoraHome()` 路径函数与 `homedir()`。
+- 第 3 步用 `primary_skill_path` 的父目录,天然解决「SKILL.md 埋在深层子目录」的问题,落地后 `<targetBaseDir>/<name>/SKILL.md` 一定在顶层;同时校验该路径不越出缓存仓库(防 `status.yaml` 被污染成 `../../SKILL.md` 导致拷贝缓存外目录)。
+- 第 6 步显式建平台基目录:首次安装时 `~/.codex/skills`、`~/.gemini/skills` 等通常不存在。
+- 第 7 步用 `mkdtempSync` 生成唯一临时目录(避免同进程多次调用或上次崩溃残留撞名),并在 `finally` 里清理未完成的 temp dir。
+- 第 7 步先确认 SKILL.md 拷贝到位、再 `rename`;第 8 步**先写 status 再删缓存**,保证不会出现「缓存已删但 status 仍指向」的不可恢复不一致。
 - 临时目录与目标在同一基目录下,保证 `rename` 是同设备原子操作。
+- 复用现有 `skillsDir()` / `resolveDoraHome()` 路径函数与 `homedir()`。
 
 ### 已知取舍
 
@@ -119,6 +144,7 @@ installSkill({ name, platform? }) ->
    - `ambiguous` → 列出候选 key,提示用完整 key 重试。
    - `not_cached` → 提示先 `/dora:dora <任务>` 加载该 skill。
    - `platform_unknown` → 提示加平台参数(claude-code/codex/opencode/gemini-cli/qwen-code)或设 `DORA_PLATFORM`。
+   - `invalid_skill_path` → 提示缓存条目的 SKILL.md 路径异常(可能 status.yaml 损坏),建议 `/dora:dora-purge` 后重新加载。
 
 文案沿用 `dora-purge` 的简洁风格。
 
@@ -127,12 +153,19 @@ installSkill({ name, platform? }) ->
 覆盖:
 
 - 深层嵌套 SKILL.md(如 `skills/public/foo/SKILL.md`)被提取到目标顶层 `<dir>/foo/SKILL.md`。
-- 各平台映射到正确的目标基目录。
+- 各平台映射到正确的目标基目录(经 `resolvePlatformSkillsDir`,注入 `DORA_TEST_HOME`)。
+- 首次安装时目标基目录不存在 → 自动创建并成功落地。
 - 目标已存在 → 跳过,系统目录和缓存均不动。
-- 拷贝校验通过后才删缓存,且 status.yaml 条目被移除。
-- `not_cached`、`ambiguous`、`platform_unknown` 三种错误分支。
+- 移除缓存采用「先写 status 再删缓存」:status.yaml 条目被移除,缓存目录被删。
+- 删缓存失败(模拟 `rmSync` 抛错)时,status 已不含该条目,缓存目录沦为 orphan,无「指向不存在目录」的不一致。
+- `primary_skill_path` 越界(如 `../../evil/SKILL.md`)→ 返回 `invalid_skill_path`,不拷贝、不删缓存。
+- `not_cached`、`ambiguous`、`platform_unknown` 错误分支。
 
-使用现有 `DORA_TEST` + 临时目录模式;目标基目录用临时目录隔离,避免污染真实 `~/.claude` 等。
+测试隔离注入点:
+
+- 平台目标目录:通过 `DORA_TEST_HOME` 环境变量注入临时 home,`resolvePlatformSkillsDir` 据此拼接,**绝不写真实 `~/.codex/skills` 等**。
+- 缓存根:沿用现有 `DORA_HOME` + 临时目录模式。
+- 两者用不同临时目录,确保「源缓存」与「目标平台目录」互不干扰。
 
 ## 验证 / 文档 / 发布
 
