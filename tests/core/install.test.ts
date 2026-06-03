@@ -1,9 +1,11 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync, readFileSync, existsSync } from "node:fs";
+import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isSafeCacheKey, copyTreeNoSymlinks, SYMLINK_REJECTED, installSkill } from "@/core/install";
-import { writeStatus } from "@/core/status";
+import * as statusMod from "@/core/status";
+import { writeStatus, loadStatus } from "@/core/status";
 import type { Status } from "@/core/types";
 
 describe("isSafeCacheKey", () => {
@@ -162,5 +164,111 @@ describe("installSkill", () => {
     expect(r.skipped).toBe(true);
     expect(readFileSync(join(platHome, ".codex/skills/foo/SKILL.md"), "utf8")).toBe("OLD");
     expect(existsSync(join(cacheHome, "skills", "foo_alice"))).toBe(true); // cache untouched
+  });
+});
+
+describe("installSkill security & recovery", () => {
+  let cacheHome: string;
+  let platHome: string;
+  const orig = { ...process.env };
+  beforeEach(() => {
+    cacheHome = mkdtempSync(join(tmpdir(), "dora-sec-c-"));
+    platHome = mkdtempSync(join(tmpdir(), "dora-sec-p-"));
+    process.env.DORA_HOME = cacheHome;
+  });
+  afterEach(() => {
+    process.env = { ...orig };
+    rmSync(cacheHome, { recursive: true, force: true });
+    rmSync(platHome, { recursive: true, force: true });
+  });
+
+  const seed = (key: string, primaryRel: string, files: Record<string, string>) => {
+    const root = join(cacheHome, "skills", key);
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = join(root, rel);
+      mkdirSync(join(abs, ".."), { recursive: true });
+      writeFileSync(abs, content);
+    }
+    // owner is hardcoded; no test in this suite asserts on it (simplified from writeCachedSkill)
+    writeStatus({
+      version: 1,
+      skills: { [key]: {
+        skill_name: key.split("_")[0]!, owner: "o",
+        repo_url: "https://github.com/o/x", github_hash: "h",
+        primary_skill_path: primaryRel, security_level: "safe",
+        downloaded_at: "2026-05-01T00:00:00Z", last_used_at: "2026-05-01T00:00:00Z", use_count: 0,
+      } },
+    });
+  };
+
+  it("rejects primary_skill_path that escapes the cache (../../)", () => {
+    seed("foo_alice", "../../evil/SKILL.md", { "SKILL.md": "# real" });
+    mkdirSync(join(cacheHome, "evil"), { recursive: true });
+    writeFileSync(join(cacheHome, "evil", "SKILL.md"), "# evil");
+    const r = installSkill({ name: "foo_alice", platform: "codex" }, platHome);
+    expect(r.error).toBe("invalid_skill_path");
+    expect(existsSync(join(cacheHome, "skills", "foo_alice"))).toBe(true); // cache untouched
+  });
+
+  it("rejects when SKILL.md itself is a symlink", () => {
+    const root = join(cacheHome, "skills", "foo_alice");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(cacheHome, "outside.md"), "x");
+    symlinkSync(join(cacheHome, "outside.md"), join(root, "SKILL.md"));
+    writeStatus({ version: 1, skills: { foo_alice: {
+      skill_name: "foo", owner: "alice", repo_url: "https://github.com/alice/foo",
+      github_hash: "h", primary_skill_path: "SKILL.md", security_level: "safe",
+      downloaded_at: "2026-05-01T00:00:00Z", last_used_at: "2026-05-01T00:00:00Z", use_count: 0,
+    } } });
+    const r = installSkill({ name: "foo_alice", platform: "codex" }, platHome);
+    expect(r.error).toBe("invalid_skill_path");
+    expect(existsSync(join(platHome, ".codex/skills/foo"))).toBe(false);
+  });
+
+  it("rejects a symlink inside the skill dir (cache-internal but out of srcDir)", () => {
+    seed("foo_alice", "skills/foo/SKILL.md", { "skills/foo/SKILL.md": "# foo" });
+    mkdirSync(join(cacheHome, "skills", "foo_alice", "shared"), { recursive: true });
+    symlinkSync("../../shared", join(cacheHome, "skills", "foo_alice", "skills", "foo", "assets"));
+    const r = installSkill({ name: "foo_alice", platform: "codex" }, platHome);
+    expect(r.error).toBe("invalid_skill_path");
+    expect(existsSync(join(platHome, ".codex/skills/foo"))).toBe(false); // nothing landed
+  });
+
+  it("rejects skill_name with path separators (invalid_skill_name)", () => {
+    seed("bad_alice", "SKILL.md", { "SKILL.md": "# x" });
+    // poison skill_name post-seed
+    const status = statusMod.loadStatus();
+    status.skills["bad_alice"]!.skill_name = "../escape";
+    statusMod.writeStatus(status);
+    const r = installSkill({ name: "bad_alice", platform: "codex" }, platHome);
+    expect(r.error).toBe("invalid_skill_name");
+  });
+
+  it("returns cache_removed:false when cache rmSync fails but install succeeds", () => {
+    // chmod-based deletion blocking is a no-op for root; skip there to avoid a false failure.
+    if (typeof process.getuid === "function" && process.getuid() === 0) return;
+    seed("foo_alice", "SKILL.md", { "SKILL.md": "# foo" });
+    // Make the cache key dir non-deletable: remove write permission on the dir itself
+    // so rmSync({recursive}) can't remove the child file inside it.
+    const cacheKeyDir = join(cacheHome, "skills", "foo_alice");
+    fs.chmodSync(cacheKeyDir, 0o555);
+    try {
+      const r = installSkill({ name: "foo_alice", platform: "codex" }, platHome);
+      expect(r.ok).toBe(true);
+      expect(r.cache_removed).toBe(false);
+      expect(r.cache_cleanup_error).toBeDefined();
+      expect(existsSync(join(platHome, ".codex/skills/foo/SKILL.md"))).toBe(true);
+    } finally {
+      fs.chmodSync(cacheKeyDir, 0o755); // restore so afterEach cleanup works
+    }
+  });
+
+  it("rolls back the installed targetDir when writeStatus fails", () => {
+    seed("foo_alice", "SKILL.md", { "SKILL.md": "# foo" });
+    const spy = vi.spyOn(statusMod, "writeStatus").mockImplementationOnce(() => { throw new Error("disk full"); });
+    expect(() => installSkill({ name: "foo_alice", platform: "codex" }, platHome)).toThrow("disk full");
+    expect(existsSync(join(platHome, ".codex/skills/foo"))).toBe(false); // rolled back
+    expect(existsSync(join(cacheHome, "skills", "foo_alice"))).toBe(true); // cache preserved
+    spy.mockRestore();
   });
 });
