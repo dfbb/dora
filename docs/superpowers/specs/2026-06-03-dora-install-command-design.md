@@ -88,12 +88,12 @@ installSkill({ name, platform }, home = homedir()) ->
   3. cacheRoot = <DORA_HOME>/skills/<key>
      srcSkillDir = dirname(join(cacheRoot, entry.primary_skill_path))
      // SKILL.md 所在那层目录,这是"修正层次"的关键
-     // 源安全校验(防 symlink 越界):
+     // 源安全校验:
      //   - resolve(srcSkillDir) 必须以 resolve(cacheRoot) + sep 开头(或等于 cacheRoot)。
      //   - skillPath = join(srcSkillDir, "SKILL.md");用 lstatSync(skillPath)(不跟随 symlink)
-     //     校验 .isFile() —— 即必须是普通文件,而非指向别处的符号链接。
-     //   - 兜底:realpathSync(skillPath) 解析后仍须在 resolve(cacheRoot) + sep 内。
+     //     校验 .isFile() —— 即必须是普通文件,而非符号链接。
      //   任一不满足 -> 返回 { error: "invalid_skill_path" },不动任何东西。
+     //   (拷贝时整棵子树拒绝任何 symlink,见第 7 步「拷贝规则」。)
   4. 目标名安全校验:entry.skill_name 必须通过现有 validateName()。
      // 不满足 -> 返回 { error: "invalid_skill_name" },不动任何东西。
      targetDir = join(targetBaseDir, entry.skill_name)
@@ -137,13 +137,14 @@ installSkill({ name, platform }, home = homedir()) ->
 
 ### 拷贝规则(第 7 步)
 
-结构化递归拷贝,**不用 glob**(否则会漏掉 `.foo` 这类隐藏文件),自己遍历目录树(`readdirSync` + 递归)或用 `cpSync(src, dst, { recursive: true, dereference: false })`。symlink 策略:
+结构化递归拷贝,**不用 glob**(否则会漏掉 `.foo` 这类隐藏文件),自己遍历目录树(`readdirSync(..., { withFileTypes: true })` + 递归)。symlink 策略:**拒绝整棵子树里的任何 symlink**。
 
-- **不解引用**(`dereference: false`):绝不跟随符号链接去读其指向的内容,避免把缓存外文件拷进平台 skills 目录。
-- 遍历到 symlink 条目时,用 `lstatSync` 判定;对每个 symlink 校验 `realpathSync` 解析后仍在 `cacheRoot` 内——指向缓存外则**拒绝**(返回 `invalid_skill_path`,清理 tmpDir,不落地)。
-- 隐藏文件(dotfiles)与子目录一并拷贝,保持目录结构原样。
+- 遍历每个条目用 `lstatSync` / `dirent.isSymbolicLink()` 判定;**遇到任何 symlink(无论指向何处)→ 返回 `invalid_skill_path`,清理 tmpDir,不落地**。
+- 理由:只拷 `srcSkillDir` 这一层、随后删除 `cacheRoot`。即便 symlink 指向 `cacheRoot` 内但在 `srcSkillDir` 外,安装后也会变悬空链接或指向目标 skill 目录之外,破坏「只安装这一层、自包含」的语义。全拒绝最简单、可推理。
+- 只拷普通文件和目录;隐藏文件(dotfiles)与子目录一并拷贝,保持目录结构原样。
+- 不使用 `cpSync` 的 `dereference` 默认行为;若用 `cpSync`,须先自行遍历确认无 symlink 再拷,或在遍历中逐条 `copyFileSync`。
 
-对应测试:含 dotfile 的 skill 目录被完整拷贝;指向缓存外的 symlink 被拒绝、不被解引用。
+对应测试:含 dotfile 的 skill 目录被完整拷贝;子树中出现任何 symlink(指向缓存外、指向 cacheRoot 内但 srcSkillDir 外、绝对/相对)一律被拒绝,不落地、不删缓存。
 
 ### 已知取舍
 
@@ -190,9 +191,13 @@ installSkill({ name, platform }, home = homedir()) ->
 - 删缓存失败(模拟 `rmSync` 抛错)时,仍返回 `ok: true` + `cache_removed: false` + `cache_cleanup_error`;status 已不含该条目,缓存目录沦为 orphan,无「指向不存在目录」的不一致。
 - `writeStatus()` 失败(模拟抛错)时回滚:`targetDir` 被删除、status 与 cache 保持原状,异常冒泡;重试可正常安装(不卡在 skipped)。
 - `primary_skill_path` 越界(如 `../../evil/SKILL.md`)→ 返回 `invalid_skill_path`,不拷贝、不删缓存。
-- SKILL.md 是指向缓存外文件的 symlink → `lstatSync` 判定非普通文件 / `realpathSync` 越界 → 返回 `invalid_skill_path`,不拷贝、不删缓存。
+- SKILL.md 本身是 symlink → `lstatSync` 判定非普通文件 → 返回 `invalid_skill_path`,不拷贝、不删缓存。
 - 含隐藏文件(dotfile)的 skill 目录 → 被完整拷贝到目标(不被 glob 漏掉)。
-- skill 目录内含指向缓存外的 symlink 条目 → 被拒绝(`invalid_skill_path`),且不被解引用,不落地。
+- 子树中出现任何 symlink 一律被拒(`invalid_skill_path`),覆盖:
+  - 指向缓存外(如 `assets -> /etc/passwd`)。
+  - 指向 `cacheRoot` 内但在 `srcSkillDir` 外(如 `srcSkillDir/assets -> ../../shared`)——装完会悬空/越界,必须拒绝。
+  - 绝对 symlink 指向 `srcSkillDir` 内(安装后会回指缓存路径,缓存删除后悬空)。
+  - 以上均不落地、不删缓存。
 - `skill_name` 非法(如 `../../x` 或不过 `validateName`)→ 返回 `invalid_skill_name`,不拷贝、不删缓存。
 - `not_cached`、`ambiguous`、`platform_unknown` 错误分支。
 - handler 平台解析顺序:显式参数 > `DORA_PLATFORM` > `ctx.getDetection()`(经 `createHandlers` 注入 detection)。
