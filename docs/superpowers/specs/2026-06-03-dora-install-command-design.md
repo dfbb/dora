@@ -27,7 +27,7 @@ dora 的「内部安装」是把整个 GitHub 仓库 `git clone` 到 `~/.dora/sk
 
 - **语义**: move —— 拷到平台目录后,删除 `~/.dora` 缓存目录并从 `status.yaml` 移除条目。
 - **目标目录**: 按运行时检测到的平台选对应的全局 skills 目录。
-- **平台决定顺序**: 显式参数 > `DORA_PLATFORM` 环境变量 > `detectRuntimePlatform()` 运行时检测。
+- **平台决定顺序**: 显式参数 > `DORA_PLATFORM` 环境变量 > `ctx.getDetection()`(由 MCP handler 解析,core 不直接检测)。
 - **检测为 `unknown`**: 报错,要求用户用平台参数或 `DORA_PLATFORM` 明确指定。
 - **拷贝范围**: 只拷 SKILL.md 所在的那一层目录(及其子内容),不拷整个仓库。
 - **冲突**: 目标 `<skills-dir>/<name>/` 已存在则跳过,系统目录和缓存都不动。
@@ -96,7 +96,8 @@ installSkill({ name, platform }, home = homedir()) ->
      targetDir = join(targetBaseDir, entry.skill_name)
      // 再校验 resolve(targetDir) 以 resolve(targetBaseDir) + sep 开头(纵深防御,防 skill_name 越界)。
      // 不满足 -> 返回 { error: "invalid_skill_name" },不动任何东西。
-  5. 若 targetDir 已存在 -> 返回 { skipped: true, reason: "exists" },不动任何东西
+  5. 若 targetDir 已存在 -> 返回 { skipped: true, reason: "exists", skill_name, platform, target_path }
+     // 不动任何东西
   6. mkdirSync(targetBaseDir, { recursive: true })   // 首次安装时平台目录可能不存在
   7. tmpDir = mkdtempSync(join(targetBaseDir, ".dora-install-"))  // 唯一临时目录
      try {
@@ -108,8 +109,12 @@ installSkill({ name, platform }, home = homedir()) ->
      }
      // 此处之前任何抛错都直接冒泡(skill 尚未落地、缓存未动),由 handler 包成 internal。
   8. 移除缓存(可恢复顺序,失败不影响"已安装"事实):
-       a. 先从 status.yaml 删 entry 并 writeStatus()
-       b. try { rmSync(cacheRoot, { recursive: true, force: true }); cacheRemoved = true }
+       a. 先从 status.yaml 删 entry 并 writeStatus()。
+          // writeStatus 失败 -> 回滚:rmSync(targetDir, { recursive, force }) 删掉刚 rename 的 skill,
+          //   再把异常冒泡(handler 包成 internal)。此时 targetDir/status/cache 都回到调用前状态,
+          //   用户重试不会卡在"目标已存在 -> skipped"。
+       b. writeStatus 成功后:
+          try { rmSync(cacheRoot, { recursive: true, force: true }); cacheRemoved = true }
           catch (e) { cacheRemoved = false; cacheCleanupError = e.message }
      // status 已不指向 cacheRoot;若 (b) 失败,缓存目录沦为 orphan(listSkills 已能识别),
      //   不会出现"status 指向不存在目录"的不一致。
@@ -123,7 +128,7 @@ installSkill({ name, platform }, home = homedir()) ->
 - 第 4 步同样把来自 `status.yaml` 的 `entry.skill_name` 当不可信输入:先过 `validateName()`,再校验拼出的 `targetDir` 仍在 `targetBaseDir` 内,防止写到平台 skills 目录之外。
 - 第 6 步显式建平台基目录:首次安装时 `~/.codex/skills`、`~/.gemini/skills` 等通常不存在。
 - 第 7 步用 `mkdtempSync` 生成唯一临时目录(避免同进程多次调用或上次崩溃残留撞名),并在 `finally` 里清理未完成的 temp dir。
-- 第 8 步**先写 status 再删缓存**,且**捕获删缓存异常**:skill 已成功安装(`ok: true`),删缓存失败仅降级为 `cache_removed: false` + `cache_cleanup_error`,语义一致、不会让 handler 误报 internal。
+- 第 8 步**先写 status 再删缓存**:`writeStatus()` 失败时回滚——删掉第 7 步刚 rename 的 `targetDir`,再冒泡异常,保证 `targetDir`/status/cache 三者一致回到调用前,用户重试不会卡在「目标已存在 → skipped」。`writeStatus()` 成功后再**捕获删缓存异常**:skill 已成功安装(`ok: true`),删缓存失败仅降级为 `cache_removed: false` + `cache_cleanup_error`,语义一致、不会让 handler 误报 internal。
 - 临时目录与目标在同一基目录下,保证 `rename` 是同设备原子操作。
 - 复用现有 `skillsDir()` / `resolveDoraHome()` 路径函数与 `homedir()`。
 
@@ -133,10 +138,11 @@ installSkill({ name, platform }, home = homedir()) ->
 
 ## 工具注册(`src/mcp/tools.ts`)
 
+- `PlatformContext` 扩展:新增可选 `platformSkillsHome?: string` 作为目标 home 注入点(默认 `undefined` → core 用 `homedir()`)。测试构造 `createHandlers({ getDetection, platformSkillsHome: <临时目录> })`,使 handler 级测试也绝不写真实 `~`。
 - `InstallSchema = z.object({ name: z.string().min(1), platform: z.string().optional() })`
 - `dora_install` handler:
   - 解析平台:显式 `platform` 参数 > `DORA_PLATFORM` 环境变量 > `ctx.getDetection().platform`(复用现有 `createHandlers(ctx)` 注入点,与 `dora_load` 一致,不在 core 里重复检测逻辑)。
-  - 调用 `installSkill({ name, platform: resolved })`,JSON 序列化返回;意外抛错走现有 `err()` 包装为 internal。
+  - 调用 `installSkill({ name, platform: resolved }, ctx.platformSkillsHome ?? homedir())`,JSON 序列化返回;意外抛错走现有 `err()` 包装为 internal。
 - `toolDefs` 新增一条:
   - name: `dora_install`
   - description: "Move a cached skill into the current platform's system skills directory."
@@ -169,16 +175,19 @@ installSkill({ name, platform }, home = homedir()) ->
 - 目标已存在 → 跳过,系统目录和缓存均不动。
 - 移除缓存采用「先写 status 再删缓存」:`cache_removed: true`,status.yaml 条目被移除,缓存目录被删。
 - 删缓存失败(模拟 `rmSync` 抛错)时,仍返回 `ok: true` + `cache_removed: false` + `cache_cleanup_error`;status 已不含该条目,缓存目录沦为 orphan,无「指向不存在目录」的不一致。
+- `writeStatus()` 失败(模拟抛错)时回滚:`targetDir` 被删除、status 与 cache 保持原状,异常冒泡;重试可正常安装(不卡在 skipped)。
 - `primary_skill_path` 越界(如 `../../evil/SKILL.md`)→ 返回 `invalid_skill_path`,不拷贝、不删缓存。
 - `skill_name` 非法(如 `../../x` 或不过 `validateName`)→ 返回 `invalid_skill_name`,不拷贝、不删缓存。
 - `not_cached`、`ambiguous`、`platform_unknown` 错误分支。
-- handler 平台解析顺序:显式参数 > `DORA_PLATFORM` > `ctx.getDetection()`。
+- handler 平台解析顺序:显式参数 > `DORA_PLATFORM` > `ctx.getDetection()`(经 `createHandlers` 注入 detection)。
 
 测试隔离注入点:
 
-- 平台目标目录:给 `installSkill` 传临时 `home` 参数(进而传给 `resolvePlatformSkillsDir`),**不依赖任何环境变量,绝不写真实 `~/.codex/skills` 等**。
+- core 级:给 `installSkill` 传临时 `home` 参数(进而传给 `resolvePlatformSkillsDir`)。
+- handler 级:构造 `createHandlers({ getDetection, platformSkillsHome: <临时目录> })`,handler 透传该 home。
+- 两层都**不依赖任何环境变量,绝不写真实 `~/.codex/skills` 等**。
 - 缓存根:沿用现有 `DORA_HOME` + 临时目录模式。
-- 两者用不同临时目录,确保「源缓存」与「目标平台目录」互不干扰。
+- 平台目标目录与缓存根用不同临时目录,确保「源缓存」与「目标平台目录」互不干扰。
 
 ## 验证 / 文档 / 发布
 
