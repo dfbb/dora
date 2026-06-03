@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { homedir } from "node:os";
 import { loadConfig } from "@/core/config";
 import { queryEngine } from "@/core/query";
 import { localQuery } from "@/core/local-query";
@@ -12,9 +13,11 @@ import type { SecurityLevel } from "@/core/types";
 import { detectRuntimePlatform } from "@/platforms/detect";
 import type { DetectionResult } from "@/platforms/detect";
 import { generateExecutionContext } from "@/platforms/tool-mapping";
+import { installSkill } from "@/core/install";
 
 export interface PlatformContext {
   getDetection: () => DetectionResult;
+  platformSkillsHome?: string;
 }
 
 const defaultPlatformContext: PlatformContext = {
@@ -29,6 +32,7 @@ const LoadSchema = z.object({
 });
 const TouchSchema = z.object({ key: z.string().min(1) });
 const PurgeSchema = z.object({ confirm: z.boolean() });
+const InstallSchema = z.object({ name: z.string().min(1), platform: z.string().optional() });
 
 function err(e: unknown): string {
   if (isDoraError(e)) return JSON.stringify({ error: e.code, message: e.message, detail: e.detail });
@@ -127,6 +131,16 @@ export function createHandlers(ctx: PlatformContext = defaultPlatformContext) {
         return JSON.stringify(purgeAll());
       } catch (e) { return err(e); }
     },
+
+    async dora_install(args: unknown): Promise<string> {
+      try {
+        const a = InstallSchema.parse(args);
+        const platform = a.platform ?? (process.env.DORA_PLATFORM || ctx.getDetection().platform);
+        const home = ctx.platformSkillsHome ?? homedir();
+        const r = installSkill({ name: a.name, platform }, home);
+        return JSON.stringify(r);
+      } catch (e) { return err(e); }
+    },
   };
 }
 
@@ -142,4 +156,5 @@ export const toolDefs = [
   { name: "dora_doctor", description: "Run all diagnostics.", inputSchema: { type: "object", properties: {} } },
   { name: "dora_upgrade", description: "Return upgrade shell command.", inputSchema: { type: "object", properties: {} } },
   { name: "dora_purge", description: "Permanently delete all cached skills.", inputSchema: { type: "object", properties: { confirm: { type: "boolean" } }, required: ["confirm"] } },
+  { name: "dora_install", description: "Move a cached skill into the current platform's system skills directory.", inputSchema: { type: "object", properties: { name: { type: "string" }, platform: { type: "string" } }, required: ["name"] } },
 ] as const;

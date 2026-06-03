@@ -22,6 +22,7 @@ beforeEach(() => {
 afterEach(() => {
   if (origDoraHome === undefined) delete process.env.DORA_HOME; else process.env.DORA_HOME = origDoraHome;
   if (origDoraTest === undefined) delete process.env.DORA_TEST; else process.env.DORA_TEST = origDoraTest;
+  delete process.env.DORA_PLATFORM;
   server.close();
   rmSync(work, { recursive: true, force: true });
 });
@@ -173,5 +174,70 @@ describe("createHandlers with platform context", () => {
     expect(out.detected_platform).toBe("claude-code");
     expect(out.detection_source).toBe("env-signal");
     expect(out.execution_context).toBeNull();
+  });
+});
+
+describe("dora_install platform resolution", () => {
+  const seedFoo = () => {
+    mkdirSync(join(work, "skills", "foo_alice"), { recursive: true });
+    writeFileSync(join(work, "skills", "foo_alice", "SKILL.md"), "# foo");
+    writeStatus({ version: 1, skills: { foo_alice: {
+      skill_name: "foo", owner: "alice", repo_url: "https://github.com/alice/foo",
+      github_hash: "h", primary_skill_path: "SKILL.md", security_level: "safe",
+      downloaded_at: "2026-05-01T00:00:00Z", last_used_at: "2026-05-01T00:00:00Z", use_count: 0,
+    } } });
+  };
+
+  it("uses explicit platform arg over detection", async () => {
+    seedFoo();
+    const platHome = mkdtempSync(join(tmpdir(), "dora-h-"));
+    const h = createHandlers({
+      getDetection: () => ({ platform: "claude-code" as const, source: "env-signal" as const }),
+      platformSkillsHome: platHome,
+    });
+    const r = JSON.parse(await h.dora_install({ name: "foo_alice", platform: "codex" }));
+    expect(r.ok).toBe(true);
+    expect(r.platform).toBe("codex");
+    expect(r.target_path).toContain(join(".codex", "skills", "foo"));
+    rmSync(platHome, { recursive: true, force: true });
+  });
+
+  it("falls back to DORA_PLATFORM env when no arg", async () => {
+    seedFoo();
+    const platHome = mkdtempSync(join(tmpdir(), "dora-h-"));
+    process.env.DORA_PLATFORM = "gemini-cli";
+    const h = createHandlers({
+      getDetection: () => ({ platform: "claude-code" as const, source: "env-signal" as const }),
+      platformSkillsHome: platHome,
+    });
+    const r = JSON.parse(await h.dora_install({ name: "foo_alice" }));
+    expect(r.platform).toBe("gemini-cli");
+    delete process.env.DORA_PLATFORM;
+    rmSync(platHome, { recursive: true, force: true });
+  });
+
+  it("falls back to ctx.getDetection when no arg and no env", async () => {
+    seedFoo();
+    const platHome = mkdtempSync(join(tmpdir(), "dora-h-"));
+    delete process.env.DORA_PLATFORM;
+    const h = createHandlers({
+      getDetection: () => ({ platform: "qwen-code" as const, source: "env-signal" as const }),
+      platformSkillsHome: platHome,
+    });
+    const r = JSON.parse(await h.dora_install({ name: "foo_alice" }));
+    expect(r.platform).toBe("qwen-code");
+    rmSync(platHome, { recursive: true, force: true });
+  });
+
+  it("returns not_cached error for unknown name", async () => {
+    writeStatus({ version: 1, skills: {} });
+    const platHome = mkdtempSync(join(tmpdir(), "dora-h-"));
+    const h = createHandlers({
+      getDetection: () => ({ platform: "codex" as const, source: "env-signal" as const }),
+      platformSkillsHome: platHome,
+    });
+    const r = JSON.parse(await h.dora_install({ name: "ghost" }));
+    expect(r.error).toBe("not_cached");
+    rmSync(platHome, { recursive: true, force: true });
   });
 });
