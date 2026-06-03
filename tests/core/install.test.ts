@@ -1,8 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isSafeCacheKey, copyTreeNoSymlinks, SYMLINK_REJECTED } from "@/core/install";
+import { isSafeCacheKey, copyTreeNoSymlinks, SYMLINK_REJECTED, installSkill } from "@/core/install";
+import { writeStatus } from "@/core/status";
+import type { Status } from "@/core/types";
 
 describe("isSafeCacheKey", () => {
   it("accepts normal keys including long ones over 64 chars", () => {
@@ -77,5 +79,88 @@ describe("copyTreeNoSymlinks", () => {
     mkdirSync(join(src, "real"));
     symlinkSync(join(src, "real"), join(src, "link-dir"));
     expect(() => copyTreeNoSymlinks(src, dst)).toThrow(SYMLINK_REJECTED);
+  });
+});
+
+describe("installSkill", () => {
+  let cacheHome: string; // DORA_HOME
+  let platHome: string;  // injected platform home
+  const orig = { ...process.env };
+
+  const writeCachedSkill = (key: string, primaryRel: string, files: Record<string, string>) => {
+    const root = join(cacheHome, "skills", key);
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = join(root, rel);
+      mkdirSync(join(abs, ".."), { recursive: true });
+      writeFileSync(abs, content);
+    }
+    const status: Status = {
+      version: 1,
+      skills: {
+        [key]: {
+          skill_name: key.split("_")[0]!, owner: key.split("_")[1] ?? "o",
+          repo_url: `https://github.com/o/${key.split("_")[0]}`,
+          github_hash: "h", primary_skill_path: primaryRel,
+          security_level: "safe",
+          downloaded_at: "2026-05-01T00:00:00Z",
+          last_used_at: "2026-05-01T00:00:00Z",
+          use_count: 0,
+        },
+      },
+    };
+    writeStatus(status);
+  };
+
+  beforeEach(() => {
+    cacheHome = mkdtempSync(join(tmpdir(), "dora-cacheh-"));
+    platHome = mkdtempSync(join(tmpdir(), "dora-plath-"));
+    process.env.DORA_HOME = cacheHome;
+  });
+  afterEach(() => {
+    process.env = { ...orig };
+    rmSync(cacheHome, { recursive: true, force: true });
+    rmSync(platHome, { recursive: true, force: true });
+  });
+
+  it("extracts a deeply nested SKILL.md to the platform top level and removes cache", () => {
+    writeCachedSkill("foo_alice", "skills/public/foo/SKILL.md", {
+      "skills/public/foo/SKILL.md": "# foo",
+      "skills/public/foo/helper.md": "h",
+    });
+    const r = installSkill({ name: "foo_alice", platform: "codex" }, platHome);
+    expect(r.ok).toBe(true);
+    expect(existsSync(join(platHome, ".codex/skills/foo/SKILL.md"))).toBe(true);
+    expect(existsSync(join(platHome, ".codex/skills/foo/helper.md"))).toBe(true);
+    expect(r.cache_removed).toBe(true);
+    expect(existsSync(join(cacheHome, "skills", "foo_alice"))).toBe(false);
+  });
+
+  it("resolves by bare skill_name when unique", () => {
+    writeCachedSkill("foo_alice", "SKILL.md", { "SKILL.md": "# foo" });
+    const r = installSkill({ name: "foo", platform: "claude-code" }, platHome);
+    expect(r.ok).toBe(true);
+    expect(existsSync(join(platHome, ".claude/skills/foo/SKILL.md"))).toBe(true);
+  });
+
+  it("returns not_cached for an unknown name", () => {
+    writeStatus({ version: 1, skills: {} });
+    const r = installSkill({ name: "ghost", platform: "codex" }, platHome);
+    expect(r.error).toBe("not_cached");
+  });
+
+  it("returns platform_unknown for an unmapped platform", () => {
+    writeCachedSkill("foo_alice", "SKILL.md", { "SKILL.md": "# foo" });
+    const r = installSkill({ name: "foo_alice", platform: "unknown" }, platHome);
+    expect(r.error).toBe("platform_unknown");
+  });
+
+  it("skips when target already exists, touching neither dir nor cache", () => {
+    writeCachedSkill("foo_alice", "SKILL.md", { "SKILL.md": "# foo" });
+    mkdirSync(join(platHome, ".codex/skills/foo"), { recursive: true });
+    writeFileSync(join(platHome, ".codex/skills/foo/SKILL.md"), "OLD");
+    const r = installSkill({ name: "foo_alice", platform: "codex" }, platHome);
+    expect(r.skipped).toBe(true);
+    expect(readFileSync(join(platHome, ".codex/skills/foo/SKILL.md"), "utf8")).toBe("OLD");
+    expect(existsSync(join(cacheHome, "skills", "foo_alice"))).toBe(true); // cache untouched
   });
 });
