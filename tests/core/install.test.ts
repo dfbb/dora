@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { isSafeCacheKey } from "@/core/install";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { isSafeCacheKey, copyTreeNoSymlinks, SYMLINK_REJECTED } from "@/core/install";
 
 describe("isSafeCacheKey", () => {
   it("accepts normal keys including long ones over 64 chars", () => {
@@ -29,5 +32,50 @@ describe("isSafeCacheKey", () => {
   it("rejects null/undefined at runtime", () => {
     expect(isSafeCacheKey(null as unknown as string)).toBe(false);
     expect(isSafeCacheKey(undefined as unknown as string)).toBe(false);
+  });
+});
+
+describe("copyTreeNoSymlinks", () => {
+  let src: string;
+  let dst: string;
+  beforeEach(() => {
+    src = mkdtempSync(join(tmpdir(), "dora-src-"));
+    dst = mkdtempSync(join(tmpdir(), "dora-dst-"));
+    rmSync(dst, { recursive: true, force: true }); // copy target must not pre-exist
+  });
+  afterEach(() => {
+    rmSync(src, { recursive: true, force: true });
+    rmSync(dst, { recursive: true, force: true });
+  });
+
+  it("copies files, subdirs, and dotfiles; returns file count", () => {
+    writeFileSync(join(src, "SKILL.md"), "# s");
+    writeFileSync(join(src, ".hidden"), "secret");
+    mkdirSync(join(src, "sub"));
+    writeFileSync(join(src, "sub", "a.txt"), "a");
+    const n = copyTreeNoSymlinks(src, dst);
+    expect(n).toBe(3);
+    expect(readFileSync(join(dst, "SKILL.md"), "utf8")).toBe("# s");
+    expect(readFileSync(join(dst, ".hidden"), "utf8")).toBe("secret");
+    expect(readFileSync(join(dst, "sub", "a.txt"), "utf8")).toBe("a");
+  });
+
+  it("throws SYMLINK_REJECTED when a file symlink is present", () => {
+    writeFileSync(join(src, "SKILL.md"), "# s");
+    symlinkSync("/etc/passwd", join(src, "evil"));
+    expect(() => copyTreeNoSymlinks(src, dst)).toThrow(SYMLINK_REJECTED);
+  });
+
+  it("throws SYMLINK_REJECTED for a symlink nested in a subdir", () => {
+    mkdirSync(join(src, "sub"));
+    symlinkSync("../../shared", join(src, "sub", "assets"));
+    expect(() => copyTreeNoSymlinks(src, dst)).toThrow(SYMLINK_REJECTED);
+  });
+
+  it("throws SYMLINK_REJECTED for a symlinked directory at top level", () => {
+    writeFileSync(join(src, "SKILL.md"), "# s");
+    mkdirSync(join(src, "real"));
+    symlinkSync(join(src, "real"), join(src, "link-dir"));
+    expect(() => copyTreeNoSymlinks(src, dst)).toThrow(SYMLINK_REJECTED);
   });
 });
