@@ -14514,7 +14514,7 @@ init_detect();
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.19",
+  version: "0.1.20",
   description: "Automatically discover and try new community skills without disrupting your workflow.",
   type: "module",
   bin: {

@@ -39,6 +39,7 @@ Restart Claude Code (or run `/reload-plugins`).
 | `/dora:dora-doctor` | Diagnostics. |
 | `/dora:dora-upgrade` | Upgrade dora itself. |
 | `/dora:dora-purge` | Delete all cached skills. |
+| `/dora:dora-install <skill> [platform]` | Move a cached skill into the current platform's system skills dir. |
 
 </details>
 
