@@ -135,6 +135,9 @@ export function createHandlers(ctx: PlatformContext = defaultPlatformContext) {
     async dora_install(args: unknown): Promise<string> {
       try {
         const a = InstallSchema.parse(args);
+        // Platform precedence: explicit arg > DORA_PLATFORM env > runtime detection.
+        // We read DORA_PLATFORM directly (not only via getDetection) so an explicit
+        // override wins cleanly; an empty string falls through to detection.
         const platform = a.platform ?? (process.env.DORA_PLATFORM || ctx.getDetection().platform);
         const home = ctx.platformSkillsHome ?? homedir();
         const r = installSkill({ name: a.name, platform }, home);

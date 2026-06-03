@@ -34,3 +34,4 @@ Branch on the returned JSON:
 - `error: "not_cached"` → 提示先用 `/dora:dora <任务>` 加载该 skill。
 - `error: "platform_unknown"` → 提示加平台参数(claude-code/codex/opencode/gemini-cli/qwen-code)或设置 `DORA_PLATFORM` 环境变量。
 - `error: "invalid_skill_path"` 或 `"invalid_skill_name"` → 提示缓存条目的路径或名称异常(status.yaml 可能损坏),建议 `/dora:dora-purge` 后重新加载。
+- 其它(含 `error: "internal"`)→ 安装未完成,把返回的 `message` 原样报告给用户;缓存与 status 未改动,可直接重试。
