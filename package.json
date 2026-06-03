@@ -1,6 +1,6 @@
 {
   "name": "@doraskill/dora",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Automatically discover and try new community skills without disrupting your workflow.",
   "type": "module",
   "bin": {

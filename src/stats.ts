@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { readRecentQueryLog } from "./core/log";
 import { skillsDir } from "./core/paths";
 import { ensureConsistent } from "./core/status";
+import { renderTable } from "./core/table";
 
 export function buildStats(): string {
   const status = ensureConsistent();
@@ -26,16 +27,17 @@ export function buildStats(): string {
   lines.push("");
   lines.push(`- Total cached: ${totalSkills} skills, ${(totalBytes / 1_048_576).toFixed(1)} MB on disk`);
   lines.push("- Top by use_count:");
+  lines.push("");
   if (top.length === 0) {
     lines.push("  _(none)_");
   } else {
-    lines.push("  | key | uses | last used | sec |");
-    lines.push("  |---|---|---|---|");
-    for (const [k, e] of top) {
+    const rows = top.map(([k, e]) => {
       const days = Math.max(0, Math.floor((Date.now() - Date.parse(e.last_used_at)) / 86_400_000));
-      lines.push(`  | ${k} | ${e.use_count ?? 0} | ${days}d ago | ${e.security_level} |`);
-    }
+      return [k, String(e.use_count ?? 0), `${days}d ago`, e.security_level];
+    });
+    lines.push(renderTable(["key", "uses", "last used", "sec"], rows));
   }
+  lines.push("");
   lines.push(`- Used in last 7d: ${last7d}`);
   lines.push(`- Avg candidates per query: ${avg.toFixed(1)} (last ${log.length} queries)`);
   return lines.join("\n");

@@ -13863,6 +13863,14 @@ function purgeAll() {
   return { deleted_skills: deleted, deleted_query_log: removedLog };
 }
 
+// src/core/table.ts
+function renderTable(headers, rows) {
+  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
+  const fmt = (cells) => "| " + widths.map((w, i) => (cells[i] ?? "").padEnd(w)).join(" | ") + " |";
+  const sep3 = "| " + widths.map((w) => "-".repeat(w)).join(" | ") + " |";
+  return [fmt(headers), sep3, ...rows.map(fmt)].join("\n");
+}
+
 // src/stats.ts
 import { existsSync as existsSync7, readdirSync as readdirSync3, statSync as statSync3 } from "node:fs";
 import { join as join4 } from "node:path";
@@ -13881,16 +13889,17 @@ function buildStats() {
   lines.push("");
   lines.push(`- Total cached: ${totalSkills} skills, ${(totalBytes / 1048576).toFixed(1)} MB on disk`);
   lines.push("- Top by use_count:");
+  lines.push("");
   if (top.length === 0) {
     lines.push("  _(none)_");
   } else {
-    lines.push("  | key | uses | last used | sec |");
-    lines.push("  |---|---|---|---|");
-    for (const [k, e] of top) {
+    const rows = top.map(([k, e]) => {
       const days = Math.max(0, Math.floor((Date.now() - Date.parse(e.last_used_at)) / 864e5));
-      lines.push(`  | ${k} | ${e.use_count ?? 0} | ${days}d ago | ${e.security_level} |`);
-    }
+      return [k, String(e.use_count ?? 0), `${days}d ago`, e.security_level];
+    });
+    lines.push(renderTable(["key", "uses", "last used", "sec"], rows));
   }
+  lines.push("");
   lines.push(`- Used in last 7d: ${last7d}`);
   lines.push(`- Avg candidates per query: ${avg.toFixed(1)} (last ${log.length} queries)`);
   return lines.join("\n");
@@ -14459,10 +14468,16 @@ function createHandlers(ctx = defaultPlatformContext) {
     async dora_list(_args) {
       const rows = listSkills();
       if (rows.length === 0) return "no skills cached.";
-      const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
-      const body = rows.map((r) => `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
-      return `${header}
-${body}`;
+      return renderTable(
+        ["key", "uses", "age", "sec", "status"],
+        rows.map((r) => [
+          r.key,
+          String(r.use_count),
+          r.age_days == null ? "-" : String(r.age_days),
+          r.security_level,
+          r.status
+        ])
+      );
     },
     async dora_stats(_args) {
       return buildStats();
@@ -14514,7 +14529,7 @@ init_detect();
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.20",
+  version: "0.1.21",
   description: "Automatically discover and try new community skills without disrupting your workflow.",
   type: "module",
   bin: {

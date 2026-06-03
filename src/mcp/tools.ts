@@ -5,6 +5,7 @@ import { queryEngine } from "@/core/query";
 import { localQuery } from "@/core/local-query";
 import { loadSkill } from "@/core/loader";
 import { listSkills, purgeAll, touch } from "@/core/cache";
+import { renderTable } from "@/core/table";
 import { isDoraError, ERR, DoraError } from "@/core/errors";
 import { buildStats } from "@/stats";
 import { buildUpgradeCommand } from "@/upgrade";
@@ -114,10 +115,16 @@ export function createHandlers(ctx: PlatformContext = defaultPlatformContext) {
     async dora_list(_args: unknown): Promise<string> {
       const rows = listSkills();
       if (rows.length === 0) return "no skills cached.";
-      const header = "| key | uses | age | sec | status |\n|---|---|---|---|---|";
-      const body = rows.map((r) =>
-        `| ${r.key} | ${r.use_count} | ${r.age_days ?? "-"} | ${r.security_level} | ${r.status} |`).join("\n");
-      return `${header}\n${body}`;
+      return renderTable(
+        ["key", "uses", "age", "sec", "status"],
+        rows.map((r) => [
+          r.key,
+          String(r.use_count),
+          r.age_days == null ? "-" : String(r.age_days),
+          r.security_level,
+          r.status,
+        ]),
+      );
     },
 
     async dora_stats(_args: unknown): Promise<string> { return buildStats(); },
