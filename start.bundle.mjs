@@ -2977,7 +2977,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref);
+      let _sch = resolve3.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -3004,7 +3004,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref) {
+    function resolve3(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3626,7 +3626,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve2(baseURI, relativeURI, options) {
+    function resolve3(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -3851,7 +3851,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve2,
+      resolve: resolve3,
       resolveComponent,
       equal,
       serialize,
@@ -6827,12 +6827,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs, exportName) {
+    function addFormats(ajv, list, fs2, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs[f]);
+        ajv.addFormat(f, fs2[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -8969,7 +8969,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error) {
@@ -8986,7 +8986,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve3, reject) => {
       const earlyReject = (error) => {
         reject(error);
       };
@@ -9064,7 +9064,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve2(parseResult.data);
+            resolve3(parseResult.data);
           }
         } catch (error) {
           reject(error);
@@ -9325,12 +9325,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve3, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve2, interval);
+      const timeoutId = setTimeout(resolve3, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -10200,12 +10200,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve2) => {
+    return new Promise((resolve3) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve2();
+        resolve3();
       } else {
-        this._stdout.once("drain", resolve2);
+        this._stdout.once("drain", resolve3);
       }
     });
   }
@@ -10213,6 +10213,7 @@ var StdioServerTransport = class {
 
 // src/mcp/tools.ts
 import { z as z3 } from "zod";
+import { homedir as homedir5 } from "node:os";
 
 // src/core/config.ts
 import { existsSync as existsSync2, readFileSync } from "node:fs";
@@ -10997,7 +10998,7 @@ var MiniSearch = class _MiniSearch {
       if ((i + 1) % chunkSize === 0) {
         return {
           chunk: [],
-          promise: promise2.then(() => new Promise((resolve2) => setTimeout(resolve2, 0))).then(() => this.addAll(chunk2))
+          promise: promise2.then(() => new Promise((resolve3) => setTimeout(resolve3, 0))).then(() => this.addAll(chunk2))
         };
       } else {
         return { chunk: chunk2, promise: promise2 };
@@ -11276,7 +11277,7 @@ var MiniSearch = class _MiniSearch {
           this._index.delete(term);
         }
         if (i % batchSize === 0) {
-          await new Promise((resolve2) => setTimeout(resolve2, batchWait));
+          await new Promise((resolve3) => setTimeout(resolve3, batchWait));
         }
         i += 1;
       }
@@ -12174,7 +12175,7 @@ var objectToNumericMapAsync = async (object4) => {
   }
   return map;
 };
-var wait = (ms) => new Promise((resolve2) => setTimeout(resolve2, ms));
+var wait = (ms) => new Promise((resolve3) => setTimeout(resolve3, ms));
 var SPACE_OR_PUNCTUATION = /[\n\r\p{Z}\p{P}]+/u;
 
 // asset/skilldb.json.gz
@@ -12187,8 +12188,8 @@ async function loadEmbeddedAsset() {
   if (!dir) return skilldb_json_default;
   try {
     const { readFileSync: readFileSync5 } = await import("node:fs");
-    const { join: join6 } = await import("node:path");
-    return readFileSync5(join6(dir, "skilldb.json.gz"));
+    const { join: join8 } = await import("node:path");
+    return readFileSync5(join8(dir, "skilldb.json.gz"));
   } catch (e) {
     throw new DoraError(ERR.LOCAL_INDEX_BROKEN, "asset read failed", {
       reason: "asset_read_failed",
@@ -12971,6 +12972,153 @@ ${context}`;
   return context;
 }
 
+// src/core/install.ts
+import { isAbsolute, join as join7, dirname as dirname2, resolve as resolve2, sep as sep2 } from "node:path";
+import * as fs from "node:fs";
+import { homedir as homedir4 } from "node:os";
+
+// src/platforms/skills-dir.ts
+import { homedir as homedir3 } from "node:os";
+import { join as join6 } from "node:path";
+var PLATFORM_SKILLS_SUBDIR = {
+  "claude-code": ".claude/skills",
+  codex: ".codex/skills",
+  opencode: ".config/opencode/skills",
+  "gemini-cli": ".gemini/skills",
+  "qwen-code": ".qwen/skills"
+};
+function resolvePlatformSkillsDir(platform, home = homedir3()) {
+  const sub = PLATFORM_SKILLS_SUBDIR[platform];
+  if (!sub) return null;
+  return join6(home, sub);
+}
+
+// src/core/install.ts
+function isContained(child, base) {
+  return (child + sep2).startsWith(base + sep2);
+}
+function isSafeCacheKey(key) {
+  if (!key) return false;
+  if (key === "." || key === "..") return false;
+  if (isAbsolute(key)) return false;
+  if (key.includes("/") || key.includes("\\")) return false;
+  return true;
+}
+var SYMLINK_REJECTED = "SYMLINK_REJECTED";
+function copyTreeNoSymlinks(src, dst) {
+  fs.mkdirSync(dst, { recursive: true });
+  let count = 0;
+  for (const dirent of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = join7(src, dirent.name);
+    const to = join7(dst, dirent.name);
+    if (dirent.isSymbolicLink()) {
+      throw new Error(SYMLINK_REJECTED);
+    }
+    if (dirent.isDirectory()) {
+      count += copyTreeNoSymlinks(from, to);
+    } else if (dirent.isFile()) {
+      fs.copyFileSync(from, to);
+      count += 1;
+    }
+  }
+  return count;
+}
+function resolveEntry(name) {
+  const status = ensureConsistent();
+  if (status.skills[name]) return { key: name, entry: status.skills[name] };
+  const matches = Object.entries(status.skills).filter(([, e]) => e.skill_name === name);
+  if (matches.length === 1) return { key: matches[0][0], entry: matches[0][1] };
+  if (matches.length > 1) return { error: "ambiguous", candidates: matches.map(([k]) => k) };
+  return { error: "not_cached" };
+}
+function installSkill(input, home = homedir4()) {
+  const resolved = resolveEntry(input.name);
+  if (!("entry" in resolved)) return resolved;
+  const { key, entry } = resolved;
+  const targetBaseDir = resolvePlatformSkillsDir(input.platform, home);
+  if (!targetBaseDir) return { error: "platform_unknown" };
+  if (!isSafeCacheKey(key)) return { error: "invalid_skill_path" };
+  const cacheRoot = join7(skillsDir(), key);
+  let realCacheRoot;
+  let realSkillsDir;
+  try {
+    realCacheRoot = fs.realpathSync(cacheRoot);
+    realSkillsDir = fs.realpathSync(skillsDir());
+  } catch {
+    return { error: "invalid_skill_path" };
+  }
+  if (!isContained(realCacheRoot, realSkillsDir)) return { error: "invalid_skill_path" };
+  const srcSkillDir = dirname2(join7(cacheRoot, entry.primary_skill_path));
+  let realSrcDir;
+  try {
+    realSrcDir = fs.realpathSync(srcSkillDir);
+  } catch {
+    return { error: "invalid_skill_path" };
+  }
+  if (!isContained(realSrcDir, realCacheRoot)) {
+    return { error: "invalid_skill_path" };
+  }
+  const skillPath = join7(realSrcDir, "SKILL.md");
+  try {
+    if (!fs.lstatSync(skillPath).isFile()) return { error: "invalid_skill_path" };
+  } catch {
+    return { error: "invalid_skill_path" };
+  }
+  if (!isSafeCacheKey(entry.skill_name)) return { error: "invalid_skill_name" };
+  try {
+    validateName(entry.skill_name);
+  } catch {
+    return { error: "invalid_skill_name" };
+  }
+  const targetDir = join7(targetBaseDir, entry.skill_name);
+  if (!isContained(resolve2(targetDir), resolve2(targetBaseDir))) {
+    return { error: "invalid_skill_name" };
+  }
+  const target_path = targetDir;
+  if (fs.existsSync(targetDir)) {
+    return { skipped: true, reason: "exists", skill_name: entry.skill_name, platform: input.platform, target_path };
+  }
+  fs.mkdirSync(targetBaseDir, { recursive: true });
+  const tmpDir = fs.mkdtempSync(join7(targetBaseDir, ".dora-install-"));
+  let fileCount = 0;
+  try {
+    fileCount = copyTreeNoSymlinks(realSrcDir, tmpDir);
+    if (!fs.existsSync(join7(tmpDir, "SKILL.md"))) throw new Error("copy missing SKILL.md");
+    fs.renameSync(tmpDir, targetDir);
+  } catch (e) {
+    if (e.message === SYMLINK_REJECTED) return { error: "invalid_skill_path" };
+    throw e;
+  } finally {
+    if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+  const status = ensureConsistent();
+  delete status.skills[key];
+  try {
+    writeStatus(status);
+  } catch (e) {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+    throw e;
+  }
+  let cacheRemoved = true;
+  let cacheCleanupError;
+  try {
+    fs.rmSync(cacheRoot, { recursive: true, force: true });
+  } catch (e) {
+    cacheRemoved = false;
+    cacheCleanupError = e.message;
+  }
+  return {
+    ok: true,
+    skill_name: entry.skill_name,
+    platform: input.platform,
+    source_path: realSrcDir,
+    target_path,
+    file_count: fileCount,
+    cache_removed: cacheRemoved,
+    ...cacheCleanupError ? { cache_cleanup_error: cacheCleanupError } : {}
+  };
+}
+
 // src/mcp/tools.ts
 var defaultPlatformContext = {
   getDetection: () => detectRuntimePlatform(void 0, process.env)
@@ -12983,6 +13131,7 @@ var LoadSchema = z3.object({
 });
 var TouchSchema = z3.object({ key: z3.string().min(1) });
 var PurgeSchema = z3.object({ confirm: z3.boolean() });
+var InstallSchema = z3.object({ name: z3.string().min(1), platform: z3.string().optional() });
 function err(e) {
   if (isDoraError(e)) return JSON.stringify({ error: e.code, message: e.message, detail: e.detail });
   return JSON.stringify({ error: "internal", message: e.message });
@@ -13086,6 +13235,17 @@ ${body}`;
       } catch (e) {
         return err(e);
       }
+    },
+    async dora_install(args) {
+      try {
+        const a = InstallSchema.parse(args);
+        const platform = a.platform ?? (process.env.DORA_PLATFORM || ctx.getDetection().platform);
+        const home = ctx.platformSkillsHome ?? homedir5();
+        const r = installSkill({ name: a.name, platform }, home);
+        return JSON.stringify(r);
+      } catch (e) {
+        return err(e);
+      }
     }
   };
 }
@@ -13098,13 +13258,14 @@ var toolDefs = [
   { name: "dora_stats", description: "Show usage statistics.", inputSchema: { type: "object", properties: {} } },
   { name: "dora_doctor", description: "Run all diagnostics.", inputSchema: { type: "object", properties: {} } },
   { name: "dora_upgrade", description: "Return upgrade shell command.", inputSchema: { type: "object", properties: {} } },
-  { name: "dora_purge", description: "Permanently delete all cached skills.", inputSchema: { type: "object", properties: { confirm: { type: "boolean" } }, required: ["confirm"] } }
+  { name: "dora_purge", description: "Permanently delete all cached skills.", inputSchema: { type: "object", properties: { confirm: { type: "boolean" } }, required: ["confirm"] } },
+  { name: "dora_install", description: "Move a cached skill into the current platform's system skills directory.", inputSchema: { type: "object", properties: { name: { type: "string" }, platform: { type: "string" } }, required: ["name"] } }
 ];
 
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.19",
+  version: "0.1.20",
   description: "Automatically discover and try new community skills without disrupting your workflow.",
   type: "module",
   bin: {

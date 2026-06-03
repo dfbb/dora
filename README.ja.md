@@ -39,6 +39,7 @@ Claude Codeを再起動（または `/reload-plugins` を実行）してくだ�
 | `/dora:dora-doctor` | 診断ツール。 |
 | `/dora:dora-upgrade` | dora 自体をアップグレード。 |
 | `/dora:dora-purge` | キャッシュ済みスキルをすべて削除。 |
+| `/dora:dora-install <skill> [platform]` | キャッシュ済みスキルを現在のプラットフォームのシステム skills ディレクトリへ移動。 |
 
 </details>
 

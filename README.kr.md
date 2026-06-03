@@ -39,6 +39,7 @@ Claude Code를 재시작하거나 `/reload-plugins`를 실행하세요.
 | `/dora:dora-doctor` | 진단 도구. |
 | `/dora:dora-upgrade` | dora 자체 업그레이드. |
 | `/dora:dora-purge` | 캐시된 모든 스킬 삭제. |
+| `/dora:dora-install <skill> [platform]` | 캐시된 스킬을 현재 플랫폼의 시스템 skills 디렉터리로 이동. |
 
 </details>
 

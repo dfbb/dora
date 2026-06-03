@@ -39,6 +39,7 @@
 | `/dora:dora-doctor` | 诊断工具。 |
 | `/dora:dora-upgrade` | 升级 dora 本身。 |
 | `/dora:dora-purge` | 删除所有已缓存的 skill。 |
+| `/dora:dora-install <skill> [platform]` | 把已缓存的 skill 移动到当前平台的系统 skills 目录。 |
 
 </details>
 

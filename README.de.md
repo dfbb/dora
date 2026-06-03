@@ -39,6 +39,7 @@ Starten Sie Claude Code neu (oder führen Sie `/reload-plugins` aus).
 | `/dora:dora-doctor` | Diagnose. |
 | `/dora:dora-upgrade` | dora aktualisieren. |
 | `/dora:dora-purge` | Alle gecachten Skills löschen. |
+| `/dora:dora-install <skill> [platform]` | Einen gecachten Skill in das System-Skills-Verzeichnis der aktuellen Plattform verschieben. |
 
 </details>
 
