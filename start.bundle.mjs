@@ -12566,7 +12566,8 @@ function renderTable(headers, rows) {
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
   const fmt = (cells) => "| " + widths.map((w, i) => (cells[i] ?? "").padEnd(w)).join(" | ") + " |";
   const sep3 = "| " + widths.map((w) => "-".repeat(w)).join(" | ") + " |";
-  return [fmt(headers), sep3, ...rows.map(fmt)].join("\n");
+  const table = [fmt(headers), sep3, ...rows.map(fmt)].join("\n");
+  return "```\n" + table + "\n```";
 }
 
 // src/stats.ts
@@ -13280,7 +13281,7 @@ var toolDefs = [
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.21",
+  version: "0.1.22",
   description: "Automatically discover and try new community skills without disrupting your workflow.",
   type: "module",
   bin: {
