@@ -13281,7 +13281,7 @@ var toolDefs = [
 // package.json
 var package_default = {
   name: "@doraskill/dora",
-  version: "0.1.22",
+  version: "0.1.23",
   description: "Automatically discover and try new community skills without disrupting your workflow.",
   type: "module",
   bin: {
